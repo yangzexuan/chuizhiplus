@@ -11,6 +11,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult } from '@/types';
 import { useUIStore } from './ui';
+import { useConfigStore } from './config';
 
 export const useTabsStore = defineStore('tabs', () => {
     // ==================== State ====================
@@ -1045,6 +1046,164 @@ export const useTabsStore = defineStore('tabs', () => {
         return { success: true };
     }
 
+    // ==================== 智能关闭操作 ====================
+
+    /**
+     * 判断标签页是否受保护
+     */
+    function isProtectedTab(nodeId: string): boolean {
+        const configStore = useConfigStore();
+        if (!configStore.protectPinnedTabs) {
+            return false;
+        }
+
+        const node = findNodeById(nodeId);
+        return node?.isPinned || false;
+    }
+
+    /**
+     * 计算将要关闭的标签页数量（包括节点及其所有后代）
+     */
+    function getCloseCount(nodeId: string): number {
+        const node = findNodeById(nodeId);
+        if (!node) {
+            return 0;
+        }
+
+        let count = 1; // 节点本身
+
+        // 递归计算所有后代
+        function countDescendants(n: TabTreeNode): void {
+            for (const child of n.children) {
+                count++;
+                countDescendants(child);
+            }
+        }
+
+        countDescendants(node);
+        return count;
+    }
+
+    /**
+     * 判断关闭操作是否需要用户确认
+     */
+    function needsConfirmation(nodeId: string): boolean {
+        const configStore = useConfigStore();
+
+        if (!configStore.enableCloseConfirmation) {
+            return false;
+        }
+
+        const node = findNodeById(nodeId);
+        if (!node) {
+            return false;
+        }
+
+        // 如果有子节点，需要确认
+        if (node.children.length > 0) {
+            return true;
+        }
+
+        // 如果关闭数量超过阈值，需要确认
+        const closeCount = getCloseCount(nodeId);
+        return closeCount > configStore.closeConfirmThreshold;
+    }
+
+    /**
+     * 关闭单个标签页
+     */
+    async function closeTab(nodeId: string): Promise<OperationResult> {
+        const node = findNodeById(nodeId);
+        if (!node) {
+            return { success: false, error: '标签页不存在' };
+        }
+
+        if (!node.tabId) {
+            return { success: false, error: '无效的标签页ID' };
+        }
+
+        // 检查是否受保护
+        if (isProtectedTab(nodeId)) {
+            return { success: false, error: '标签页受保护，无法关闭' };
+        }
+
+        try {
+            // 调用 Chrome API 关闭标签页
+            await chrome.tabs.remove(node.tabId);
+
+            // 从树中移除节点
+            removeTab(nodeId);
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: String(error) };
+        }
+    }
+
+    /**
+     * 递归关闭标签页及其所有子节点
+     */
+    async function closeTabWithChildren(nodeId: string): Promise<OperationResult> {
+        const node = findNodeById(nodeId);
+        if (!node) {
+            return { success: false, error: '标签页不存在' };
+        }
+
+        const errors: string[] = [];
+        const closedTabs: number[] = [];
+
+        // 递归收集所有需要关闭的标签页ID（深度优先，子节点先于父节点）
+        const tabsToClose: TabTreeNode[] = [];
+        function collectTabs(n: TabTreeNode): void {
+            // 先收集子节点
+            for (const child of n.children) {
+                collectTabs(child);
+            }
+            // 再收集父节点
+            tabsToClose.push(n);
+        }
+
+        collectTabs(node);
+
+        // 按顺序关闭所有标签页
+        for (const tab of tabsToClose) {
+            // 跳过受保护的标签页
+            if (isProtectedTab(tab.id)) {
+                console.log(`跳过受保护的标签页: ${tab.title}`);
+                continue;
+            }
+
+            if (tab.tabId) {
+                try {
+                    await chrome.tabs.remove(tab.tabId);
+                    closedTabs.push(tab.tabId);
+                } catch (error) {
+                    errors.push(`关闭标签页 ${tab.title} 失败: ${error}`);
+                }
+            }
+        }
+
+        // 从树中移除所有已关闭的节点
+        for (const tab of tabsToClose) {
+            if (!isProtectedTab(tab.id)) {
+                removeTab(tab.id);
+            }
+        }
+
+        if (errors.length > 0) {
+            return {
+                success: false,
+                error: errors.join('; '),
+                data: { closedTabs, errors },
+            };
+        }
+
+        return {
+            success: true,
+            data: { closedTabs },
+        };
+    }
+
     // ==================== Return ====================
 
     return {
@@ -1088,5 +1247,12 @@ export const useTabsStore = defineStore('tabs', () => {
         syncTabPosition,
         undoDrag,
         dragSnapshot,
+
+        // Smart Close Actions
+        closeTab,
+        closeTabWithChildren,
+        needsConfirmation,
+        getCloseCount,
+        isProtectedTab,
     };
 });
