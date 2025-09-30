@@ -228,6 +228,58 @@ export const useUIStore = defineStore('ui', () => {
         activeFilters.value.clear();
     }
 
+    /**
+     * 保存折叠状态到Chrome Storage
+     */
+    async function saveCollapseState(): Promise<void> {
+        try {
+            const state = {
+                collapsedNodes: Array.from(collapsedNodes.value),
+                timestamp: Date.now(),
+            };
+
+            await chrome.storage.local.set({
+                'ui-collapse-state': state,
+            });
+
+            console.log('折叠状态已保存:', state.collapsedNodes.length, '个节点');
+        } catch (error) {
+            console.error('保存折叠状态失败:', error);
+        }
+    }
+
+    /**
+     * 从Chrome Storage恢复折叠状态
+     */
+    async function loadCollapseState(): Promise<void> {
+        try {
+            const result = await chrome.storage.local.get('ui-collapse-state');
+            const savedState = result['ui-collapse-state'];
+
+            if (!savedState || !savedState.collapsedNodes) {
+                console.log('没有找到保存的折叠状态，使用默认状态');
+                return;
+            }
+
+            // 验证数据格式
+            if (!Array.isArray(savedState.collapsedNodes)) {
+                console.warn('保存的折叠状态格式错误，使用默认状态');
+                return;
+            }
+
+            // 恢复折叠状态
+            collapsedNodes.value.clear();
+            savedState.collapsedNodes.forEach((nodeId: string) => {
+                collapsedNodes.value.add(nodeId);
+            });
+
+            console.log('折叠状态已恢复:', collapsedNodes.value.size, '个节点');
+        } catch (error) {
+            console.error('恢复折叠状态失败:', error);
+            // 失败时不影响应用正常运行，使用默认状态
+        }
+    }
+
     // ==================== Return ====================
 
     return {
@@ -266,5 +318,7 @@ export const useUIStore = defineStore('ui', () => {
         clearFilters,
         isFilterActive,
         reset,
+        saveCollapseState,
+        loadCollapseState,
     };
 });
