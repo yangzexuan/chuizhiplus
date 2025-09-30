@@ -1188,6 +1188,65 @@ export const useTabsStore = defineStore('tabs', () => {
         updateWindow(windowId, { focused: true });
     }
 
+    /**
+     * 切换到指定窗口
+     */
+    async function switchToWindow(windowId: number): Promise<OperationResult> {
+        try {
+            await chrome.windows.update(windowId, { focused: true });
+            handleWindowFocusChanged(windowId);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: String(error) };
+        }
+    }
+
+    /**
+     * 激活指定窗口中的标签页
+     */
+    async function activateTabInWindow(nodeId: string): Promise<OperationResult> {
+        const node = findNodeById(nodeId);
+        if (!node) {
+            return { success: false, error: '节点不存在' };
+        }
+
+        try {
+            // 先切换到目标窗口
+            await chrome.windows.update(node.windowId, { focused: true });
+            handleWindowFocusChanged(node.windowId);
+
+            // 再激活标签页
+            await chrome.tabs.update(node.tabId, { active: true });
+            setActiveTab(node.tabId);
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: String(error) };
+        }
+    }
+
+    /**
+     * 检查是否可以移动到指定窗口
+     */
+    function canMoveToWindow(nodeId: string, targetWindowId: number): boolean {
+        const node = findNodeById(nodeId);
+        if (!node) {
+            return false;
+        }
+
+        // 不能移动到同一窗口
+        if (node.windowId === targetWindowId) {
+            return false;
+        }
+
+        // 不能移动固定的标签页
+        if (node.isPinned) {
+            return false;
+        }
+
+        return true;
+    }
+
     // ==================== 智能关闭操作 ====================
 
     /**
@@ -1539,5 +1598,8 @@ export const useTabsStore = defineStore('tabs', () => {
         handleWindowCreated,
         handleWindowRemoved,
         handleWindowFocusChanged,
+        switchToWindow,
+        activateTabInWindow,
+        canMoveToWindow,
     };
 });
