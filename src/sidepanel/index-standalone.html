@@ -226,17 +226,31 @@
         async function init() {
             console.log('🚀 Chrome Tree Tab Manager 启动');
 
-            // 加载标签页
-            await loadTabs();
-            await loadWindows();
+            try {
+                // 加载标签页
+                await loadTabs();
+                console.log('📊 标签页数据:', tabs.length, '个');
+                console.log('详细数据:', tabs);
 
-            // 渲染树
-            renderTree();
+                await loadWindows();
+                console.log('🪟 窗口数据:', windows.length, '个');
 
-            // 设置监听器
-            setupListeners();
+                // 渲染树
+                renderTree();
+                console.log('🎨 树已渲染');
 
-            console.log('✅ 初始化完成');
+                // 设置监听器
+                setupListeners();
+
+                console.log('✅ 初始化完成');
+            } catch (error) {
+                console.error('❌ 初始化失败:', error);
+                document.getElementById('treeContainer').innerHTML =
+                    `<div class="empty-state">
+                        初始化失败: ${error.message}<br>
+                        <small>请打开 DevTools 查看详细错误</small>
+                    </div>`;
+            }
         }
 
         // 加载标签页
@@ -305,29 +319,52 @@
             const tabCountEl = document.getElementById('tabCount');
             const windowCountEl = document.getElementById('windowCount');
 
+            console.log('🎨 开始渲染，标签页数量:', tabs.length);
+
             // 更新统计
             tabCountEl.textContent = `标签页: ${tabs.length}`;
             windowCountEl.textContent = `窗口: ${windows.length}`;
 
+            // 如果没有标签页数据
+            if (!tabs || tabs.length === 0) {
+                container.innerHTML = '<div class="empty-state">加载中...</div>';
+                console.log('⚠️  没有标签页数据');
+                return;
+            }
+
             // 过滤和排序
             const query = searchQuery.toLowerCase();
-            const visibleTabs = tabs.filter(tab => {
-                if (!query) return !tab.parentId; // 只显示根节点
-                return tab.title.toLowerCase().includes(query) ||
-                    tab.url.toLowerCase().includes(query);
-            });
+            let visibleTabs;
 
-            // 如果没有标签页
+            if (query) {
+                // 搜索模式：显示所有匹配的标签页
+                visibleTabs = tabs.filter(tab =>
+                    tab.title.toLowerCase().includes(query) ||
+                    tab.url.toLowerCase().includes(query)
+                );
+                console.log('🔍 搜索结果:', visibleTabs.length, '个匹配');
+            } else {
+                // 正常模式：只显示根节点（没有父节点的标签页）
+                visibleTabs = tabs.filter(tab => !tab.parentId);
+                console.log('🌲 根节点数量:', visibleTabs.length);
+                console.log('根节点详情:', visibleTabs.map(t => ({ id: t.id, title: t.title, parentId: t.parentId })));
+            }
+
+            // 如果没有可见标签页
             if (visibleTabs.length === 0) {
-                container.innerHTML = '<div class="empty-state">没有找到标签页</div>';
+                const message = query ? '没有找到匹配的标签页' : '没有标签页数据';
+                container.innerHTML = `<div class="empty-state">${message}</div>`;
+                console.log('⚠️  没有可见标签页');
                 return;
             }
 
             // 渲染节点
             container.innerHTML = '';
+            console.log('✏️  渲染', visibleTabs.length, '个节点');
             visibleTabs.forEach(tab => {
                 renderNode(tab, container);
             });
+            console.log('✅ 渲染完成');
         }
 
         // 渲染单个节点

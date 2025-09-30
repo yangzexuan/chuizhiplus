@@ -68,9 +68,11 @@ cp -r src/components dist-dev/ 2>/dev/null || echo "  (components 部分复制)"
 echo "🎨 生成 PNG 图标..."
 node generate-icons.cjs
 
-# 使用完整功能的 HTML 文件
-echo "📄 复制完整功能的侧边面板 HTML..."
-cp src/sidepanel/index-standalone.html dist-dev/sidepanel/index.html
+# 使用符合 CSP 的 HTML 文件（JavaScript 分离）
+echo "📄 复制侧边面板文件..."
+cp src/sidepanel/index-csp.html dist-dev/sidepanel/index.html
+cp src/sidepanel/app.js dist-dev/sidepanel/app.js
+cp src/sidepanel/styles.css dist-dev/sidepanel/styles.css
 
 # 备份：如果上面的文件不存在，创建简化版本
 if [ ! -f "dist-dev/sidepanel/index.html" ]; then
