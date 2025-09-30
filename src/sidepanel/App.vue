@@ -14,9 +14,7 @@
     </section>
 
     <main class="main">
-      <div class="tree-view">
-        <p class="placeholder">正在加载标签页...</p>
-      </div>
+      <TreeView />
     </main>
 
     <footer class="footer">
@@ -29,11 +27,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import TreeView from '@/components/TreeView/TreeView.vue';
+import { useTabsStore } from '@/stores/tabs';
+import { useUIStore } from '@/stores/ui';
+
+// Stores
+const tabsStore = useTabsStore();
+const uiStore = useUIStore();
 
 // 响应式数据
-const searchQuery = ref('');
-const tabCount = ref(0);
+const searchQuery = computed({
+  get: () => uiStore.searchQuery,
+  set: (value: string) => uiStore.setSearchQuery(value),
+});
+
+const tabCount = computed(() => tabsStore.tabCount);
 const windowCount = ref(0);
 
 // 组件挂载
@@ -122,16 +131,7 @@ async function initializeData() {
   padding: 8px;
 }
 
-.tree-view {
-  min-height: 100%;
-}
 
-.placeholder {
-  padding: 16px;
-  text-align: center;
-  color: #80868b;
-  font-size: 14px;
-}
 
 /* 底部状态栏 */
 .footer {
