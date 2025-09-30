@@ -19,7 +19,6 @@ Kiro-style Spec Driven Development implementation using claude code slash comman
 - Use `/kiro:spec-status [feature-name]` to check progress
 
 #### Current Active Specifications
-- **chrome-tree-tab-manager**: Chrome浏览器树状页面管理器插件 - 提供左侧面板以树状结构展示和管理标签页
 - **chrome-tree-tab**: Chrome浏览器树状页面管理器插件 - 基于完整需求文档的规范化实现版本
 
 ## Development Guidelines

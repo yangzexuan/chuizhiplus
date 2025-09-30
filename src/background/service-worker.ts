@@ -1,71 +1,62 @@
-// Chrome Extension Service Worker
-// 轻量化事件监听和消息转发机制
+/**
+ * Service Worker 后台脚本
+ * 
+ * 职责：
+ * - 监听Chrome标签页和窗口事件
+ * - 转发事件到Vue应用
+ * - 提供Chrome API代理
+ */
 
-console.log('Chrome Tree Tab Manager - Service Worker loaded');
-
-// 安装事件处理
+// 扩展安装时的初始化
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Extension installed');
+    console.log('Chrome树状标签管理器已安装');
 });
 
-// 扩展图标点击事件 - 打开侧边栏
-chrome.action.onClicked.addListener(async (tab) => {
-  try {
-    await chrome.sidePanel.open({ tabId: tab.id });
-  } catch (error) {
-    console.error('Failed to open side panel:', error);
-  }
+// 处理来自UI的消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('收到消息:', message);
+
+    // 异步处理消息
+    handleMessage(message).then(sendResponse);
+
+    // 返回true表示异步响应
+    return true;
 });
 
-// 标签页事件监听
-chrome.tabs.onCreated.addListener((tab) => {
-  console.log('Tab created:', tab.id);
-  // TODO: 实现标签页创建事件处理
-});
+/**
+ * 处理消息的异步函数
+ */
+async function handleMessage(message: any): Promise<any> {
+    switch (message.type) {
+        case 'GET_ALL_TABS':
+            return getAllTabs();
+        case 'GET_ALL_WINDOWS':
+            return getAllWindows();
+        default:
+            return { error: '未知的消息类型' };
+    }
+}
 
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  console.log('Tab removed:', tabId);
-  // TODO: 实现标签页移除事件处理
-});
+/**
+ * 获取所有标签页
+ */
+async function getAllTabs() {
+    try {
+        const tabs = await chrome.tabs.query({});
+        return { success: true, data: tabs };
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  console.log('Tab updated:', tabId, changeInfo);
-  // TODO: 实现标签页更新事件处理
-});
-
-// 窗口事件监听
-chrome.windows.onCreated.addListener((window) => {
-  console.log('Window created:', window.id);
-  // TODO: 实现窗口创建事件处理
-});
-
-chrome.windows.onRemoved.addListener((windowId) => {
-  console.log('Window removed:', windowId);
-  // TODO: 实现窗口移除事件处理
-});
-
-// 消息通信处理
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Message received:', request);
-
-  // TODO: 实现与Vue应用的双向通信桥梁
-  switch (request.action) {
-    case 'GET_TABS':
-      // 获取所有标签页
-      chrome.tabs.query({}, (tabs) => {
-        sendResponse({ tabs });
-      });
-      return true; // 保持消息通道开放
-
-    case 'GET_WINDOWS':
-      // 获取所有窗口
-      chrome.windows.getAll({ populate: true }, (windows) => {
-        sendResponse({ windows });
-      });
-      return true;
-
-    default:
-      sendResponse({ error: 'Unknown action' });
-      return false;
-  }
-});
+/**
+ * 获取所有窗口
+ */
+async function getAllWindows() {
+    try {
+        const windows = await chrome.windows.getAll({ populate: true });
+        return { success: true, data: windows };
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}

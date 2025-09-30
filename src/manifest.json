@@ -1,32 +1,38 @@
 {
-  "manifest_version": 3,
-  "name": "Chrome Tree Tab Manager",
-  "version": "1.0.0",
-  "description": "Chrome浏览器扩展插件，提供左侧面板以树状结构展示和管理所有打开的标签页",
-
-  "permissions": [
-    "tabs",
-    "activeTab",
-    "storage",
-    "sidePanel"
-  ],
-
-  "background": {
-    "service_worker": "background/service-worker.js"
-  },
-
-  "side_panel": {
-    "default_path": "sidepanel/index.html"
-  },
-
-  "action": {
-    "default_title": "打开树状标签管理器"
-  },
-
-  "icons": {
-    "16": "assets/icons/icon-16.png",
-    "32": "assets/icons/icon-32.png",
-    "48": "assets/icons/icon-48.png",
-    "128": "assets/icons/icon-128.png"
-  }
+    "manifest_version": 3,
+    "name": "Chrome树状标签管理器",
+    "version": "0.1.0",
+    "description": "以树状结构展示和管理Chrome标签页，支持折叠/展开、拖拽重组、智能关闭等高级功能",
+    "permissions": [
+        "tabs",
+        "storage",
+        "sidePanel",
+        "tabGroups"
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "background": {
+        "service_worker": "background/service-worker.ts",
+        "type": "module"
+    },
+    "side_panel": {
+        "default_path": "sidepanel/index.html"
+    },
+    "action": {
+        "default_title": "打开树状标签管理器",
+        "default_icon": {
+            "16": "assets/icons/icon-16.png",
+            "32": "assets/icons/icon-32.png",
+            "48": "assets/icons/icon-48.png",
+            "128": "assets/icons/icon-128.png"
+        }
+    },
+    "icons": {
+        "16": "assets/icons/icon-16.png",
+        "32": "assets/icons/icon-32.png",
+        "48": "assets/icons/icon-48.png",
+        "128": "assets/icons/icon-128.png"
+    },
+    "minimum_chrome_version": "114"
 }
