@@ -119,6 +119,9 @@ export async function handleMessage(message: Message): Promise<MessageResponse> 
         case 'CREATE_TAB':
             return createTab(message.url, message.openerTabId, message.windowId);
 
+        case 'ACTIVATE_TAB':
+            return activateTab(message.tabId);
+
         // ==================== 窗口操作 ====================
         case 'GET_ALL_WINDOWS':
             return getAllWindows();
@@ -223,6 +226,28 @@ async function createTab(
             createProperties.windowId = windowId;
         }
         const tab = await chrome.tabs.create(createProperties);
+        return { success: true, data: tab };
+    } catch (error) {
+        return { success: false, error: String(error) };
+    }
+}
+
+/**
+ * 激活标签页
+ */
+async function activateTab(tabId: number): Promise<MessageResponse> {
+    try {
+        // 先获取标签页以确定其所属窗口
+        const tab = await chrome.tabs.get(tabId);
+
+        // 激活标签页
+        await chrome.tabs.update(tabId, { active: true });
+
+        // 如果标签页在另一个窗口，需要先聚焦那个窗口
+        if (tab.windowId) {
+            await chrome.windows.update(tab.windowId, { focused: true });
+        }
+
         return { success: true, data: tab };
     } catch (error) {
         return { success: false, error: String(error) };

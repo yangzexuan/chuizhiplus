@@ -13,6 +13,7 @@
         :node="node"
         @click="handleNodeClick(node)"
         @toggle-collapse="handleToggleCollapse(node)"
+        @contextmenu="handleContextMenu(node, $event)"
       />
     </div>
   </div>
@@ -85,9 +86,11 @@ const emptyMessage = computed(() => {
 /**
  * 处理节点点击
  */
-function handleNodeClick(node: TabTreeNode) {
+async function handleNodeClick(node: TabTreeNode) {
   console.log('Node clicked:', node.title);
-  // 这将在3.2任务中实现完整的点击处理
+  
+  // 激活标签页
+  await tabsStore.activateTab(node.tabId);
 }
 
 /**
@@ -95,6 +98,14 @@ function handleNodeClick(node: TabTreeNode) {
  */
 function handleToggleCollapse(node: TabTreeNode) {
   uiStore.toggleCollapse(node.id);
+}
+
+/**
+ * 处理节点右键菜单
+ */
+function handleContextMenu(node: TabTreeNode, event: MouseEvent) {
+  console.log('Context menu:', node.title, event);
+  // 右键菜单功能将在后续任务中完善
 }
 </script>
 

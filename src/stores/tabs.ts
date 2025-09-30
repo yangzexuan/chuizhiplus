@@ -262,6 +262,28 @@ export const useTabsStore = defineStore('tabs', () => {
         return find(tabTree.value);
     }
 
+    /**
+     * 激活标签页
+     */
+    async function activateTab(tabId: number): Promise<void> {
+        try {
+            // 发送消息到Service Worker激活标签页
+            const response = await chrome.runtime.sendMessage({
+                type: 'ACTIVATE_TAB',
+                tabId,
+            });
+
+            if (response.success) {
+                // 更新活跃标签页ID
+                setActiveTab(tabId);
+            } else {
+                console.error('激活标签页失败:', response.error);
+            }
+        } catch (error) {
+            console.error('激活标签页时出错:', error);
+        }
+    }
+
     // ==================== Return ====================
 
     return {
@@ -286,5 +308,6 @@ export const useTabsStore = defineStore('tabs', () => {
         clearTree,
         findNodeById,
         findNodeByTabId,
+        activateTab,
     };
 });

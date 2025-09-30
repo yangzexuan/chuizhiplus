@@ -9,6 +9,7 @@
     }"
     :style="{ paddingLeft: `${indentSize}px` }"
     @click.stop="$emit('click', node)"
+    @contextmenu.prevent="$emit('contextmenu', node, $event)"
   >
     <!-- 折叠按钮 -->
     <button
@@ -71,6 +72,7 @@ const props = defineProps<Props>();
 interface Emits {
   (e: 'click', node: TabTreeNode): void;
   (e: 'toggle-collapse', node: TabTreeNode): void;
+  (e: 'contextmenu', node: TabTreeNode, event: MouseEvent): void;
 }
 
 defineEmits<Emits>();
