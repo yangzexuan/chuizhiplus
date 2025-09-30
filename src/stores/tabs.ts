@@ -396,6 +396,19 @@ export const useTabsStore = defineStore('tabs', () => {
             lastModified: Date.now(),
         };
 
+        // 如果新标签页是活跃的，需要更新之前的活跃标签页
+        if (tab.active) {
+            // 将之前的活跃标签页设为非活跃
+            if (activeTabId.value !== null && activeTabId.value !== tab.id) {
+                const oldActiveNode = findNodeByTabId(activeTabId.value);
+                if (oldActiveNode) {
+                    updateTab(oldActiveNode.id, { isActive: false });
+                }
+            }
+            // 更新活跃标签页ID
+            activeTabId.value = tab.id;
+        }
+
         // 添加到树中
         if (parentNodeId) {
             const parentNode = findNodeById(parentNodeId);
@@ -529,6 +542,182 @@ export const useTabsStore = defineStore('tabs', () => {
         windowGroups.value = groups;
     }
 
+    // ==================== 实时同步功能 ====================
+
+    /**
+     * 消息监听器引用（用于清理）
+     */
+    let messageListener: ((message: any, sender: any, sendResponse: any) => void) | null = null;
+
+    /**
+     * 初始化实时同步监听器
+     */
+    function initializeSyncListeners(): void {
+        // 避免重复注册
+        if (messageListener) {
+            return;
+        }
+
+        messageListener = (message: any, _sender: any, _sendResponse: any) => {
+            handleSyncMessage(message);
+        };
+
+        chrome.runtime.onMessage.addListener(messageListener);
+    }
+
+    /**
+     * 清理同步监听器
+     */
+    function cleanupSyncListeners(): void {
+        if (messageListener) {
+            chrome.runtime.onMessage.removeListener(messageListener);
+            messageListener = null;
+        }
+    }
+
+    /**
+     * 处理同步消息
+     */
+    function handleSyncMessage(message: any): void {
+        try {
+            switch (message.type) {
+                case 'TAB_CREATED':
+                    if (message.tab) {
+                        addTabFromChrome(message.tab);
+                    }
+                    break;
+
+                case 'TAB_REMOVED':
+                    if (message.tabId !== undefined) {
+                        removeTab(message.tabId);
+                    }
+                    break;
+
+                case 'TAB_UPDATED':
+                    if (message.tabId !== undefined && message.tab) {
+                        handleTabUpdate(message.tabId, message.changeInfo, message.tab);
+                    }
+                    break;
+
+                case 'TAB_MOVED':
+                    if (message.tabId !== undefined && message.moveInfo) {
+                        // 标签页移动逻辑
+                        // 目前只需要确保不崩溃
+                        console.log('Tab moved:', message.tabId, message.moveInfo);
+                    }
+                    break;
+
+                case 'TAB_ACTIVATED':
+                    if (message.activeInfo && message.activeInfo.tabId !== undefined) {
+                        handleTabActivation(message.activeInfo.tabId);
+                    }
+                    break;
+
+                default:
+                    // 未知消息类型，忽略
+                    break;
+            }
+        } catch (error) {
+            console.error('处理同步消息时出错:', error, message);
+        }
+    }
+
+    /**
+     * 处理标签页更新
+     */
+    function handleTabUpdate(tabId: number, changeInfo: any, tab: chrome.tabs.Tab): void {
+        const node = findNodeByTabId(tabId);
+        if (!node) {
+            // 标签页不存在，可能需要添加
+            addTabFromChrome(tab);
+            return;
+        }
+
+        // 更新节点属性
+        const updates: Partial<TabTreeNode> = {};
+
+        if (changeInfo.title !== undefined) {
+            updates.title = changeInfo.title;
+        }
+
+        if (changeInfo.url !== undefined) {
+            updates.url = changeInfo.url;
+        }
+
+        if (changeInfo.favIconUrl !== undefined) {
+            updates.favicon = changeInfo.favIconUrl;
+        }
+
+        if (changeInfo.status !== undefined) {
+            updates.isLoading = changeInfo.status === 'loading';
+        }
+
+        if (changeInfo.audible !== undefined) {
+            updates.isAudioPlaying = changeInfo.audible;
+        }
+
+        if (changeInfo.pinned !== undefined) {
+            updates.isPinned = changeInfo.pinned;
+        }
+
+        // 应用更新
+        if (Object.keys(updates).length > 0) {
+            updateTab(node.id, updates);
+        }
+    }
+
+    /**
+     * 处理标签页激活
+     */
+    function handleTabActivation(tabId: number): void {
+        // 更新活跃标签页ID
+        const oldActiveId = activeTabId.value;
+        activeTabId.value = tabId;
+
+        // 更新节点的isActive状态
+        if (oldActiveId !== null) {
+            const oldActiveNode = findNodeByTabId(oldActiveId);
+            if (oldActiveNode) {
+                updateTab(oldActiveNode.id, { isActive: false });
+            }
+        }
+
+        const newActiveNode = findNodeByTabId(tabId);
+        if (newActiveNode) {
+            updateTab(newActiveNode.id, { isActive: true });
+        }
+    }
+
+    /**
+     * 从Chrome同步所有标签页
+     * 清空当前树并重新加载所有标签页
+     */
+    async function syncAllTabs(): Promise<void> {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                type: 'GET_ALL_TABS',
+            });
+
+            if (!response.success) {
+                console.error('同步标签页失败:', response.error);
+                return;
+            }
+
+            // 清空当前树
+            clearTree();
+
+            // 添加所有标签页
+            const tabs = response.data as chrome.tabs.Tab[];
+            if (tabs && Array.isArray(tabs)) {
+                for (const tab of tabs) {
+                    addTabFromChrome(tab);
+                }
+            }
+        } catch (error) {
+            console.error('同步所有标签页时出错:', error);
+        }
+    }
+
     // ==================== Return ====================
 
     return {
@@ -556,5 +745,10 @@ export const useTabsStore = defineStore('tabs', () => {
         activateTab,
         addTabFromChrome,
         setParent,
+
+        // Sync Actions
+        initializeSyncListeners,
+        cleanupSyncListeners,
+        syncAllTabs,
     };
 });
