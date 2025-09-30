@@ -257,7 +257,7 @@ export const useConfigStore = defineStore('config', () => {
      */
     async function setConfigValue<K extends keyof Config>(key: K, value: Config[K]): Promise<void> {
         const validation = validateConfig({ [key]: value } as Partial<Config>);
-        
+
         if (!validation.valid) {
             throw new Error(validation.errors?.[key] || '配置验证失败');
         }
@@ -341,6 +341,129 @@ export const useConfigStore = defineStore('config', () => {
         return item?.description || '';
     }
 
+    // ==================== 配置导入导出功能 ====================
+
+    /**
+     * 导出配置为JSON字符串
+     */
+    function exportConfig(): string {
+        const exportData = {
+            version: '1.0',
+            exportedAt: Date.now(),
+            ...config.value,
+        };
+
+        return JSON.stringify(exportData, null, 2);
+    }
+
+    /**
+     * 从JSON字符串导入配置
+     */
+    async function importConfig(jsonString: string): Promise<void> {
+        try {
+            const data = JSON.parse(jsonString);
+
+            // 提取配置项（排除元数据）
+            const { version, exportedAt, ...configData } = data;
+
+            // 首先过滤掉无效的键
+            const categories = getConfigCategories();
+            const allItems = categories.flatMap(c => c.items);
+            const validKeys = new Set(allItems.map(i => i.key));
+
+            const validConfig: Partial<Config> = {};
+            for (const [key, value] of Object.entries(configData)) {
+                if (validKeys.has(key as keyof Config)) {
+                    validConfig[key as keyof Config] = value;
+                }
+            }
+
+            // 验证配置
+            const validation = validateConfig(validConfig);
+            if (!validation.valid) {
+                throw new Error('配置验证失败: ' + JSON.stringify(validation.errors));
+            }
+
+            // 更新配置
+            await updateConfig(validConfig);
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                throw new Error('无效的JSON格式');
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * 下载配置为Blob对象
+     */
+    function downloadConfig(): Blob {
+        const jsonString = exportConfig();
+        return new Blob([jsonString], { type: 'application/json' });
+    }
+
+    /**
+     * 从文件上传并导入配置
+     */
+    async function uploadConfig(file: File): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = async () => {
+                try {
+                    const text = reader.result as string;
+                    await importConfig(text);
+                    resolve();
+                } catch (error) {
+                    reject(new Error('读取配置文件失败: ' + (error as Error).message));
+                }
+            };
+
+            reader.onerror = () => {
+                reject(new Error('读取配置文件失败: ' + reader.error?.message));
+            };
+
+            reader.readAsText(file);
+        });
+    }
+
+    // ==================== 配置实时预览功能 ====================
+
+    let previewSnapshot: Config | null = null;
+
+    /**
+     * 预览配置（不保存）
+     */
+    function previewConfig(updates: Partial<Config>): void {
+        // 保存当前配置快照
+        if (!previewSnapshot) {
+            previewSnapshot = { ...config.value };
+        }
+
+        // 临时应用配置
+        config.value = { ...config.value, ...updates };
+    }
+
+    /**
+     * 取消预览，恢复原始配置
+     */
+    function cancelPreview(): void {
+        if (previewSnapshot) {
+            config.value = previewSnapshot;
+            previewSnapshot = null;
+        }
+    }
+
+    /**
+     * 应用预览的配置（永久保存）
+     */
+    async function applyPreview(): Promise<void> {
+        if (previewSnapshot) {
+            previewSnapshot = null;
+            await saveConfig();
+        }
+    }
+
     // ==================== Return ====================
 
     return {
@@ -364,5 +487,16 @@ export const useConfigStore = defineStore('config', () => {
         getPresets,
         applyPreset,
         getConfigDescription,
+
+        // Import/Export
+        exportConfig,
+        importConfig,
+        downloadConfig,
+        uploadConfig,
+
+        // Preview
+        previewConfig,
+        applyPreview,
+        cancelPreview,
     };
 });
