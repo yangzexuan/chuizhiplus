@@ -104,6 +104,26 @@ export interface DragState {
 }
 
 /**
+ * 拖拽快照（用于撤销操作）
+ */
+export interface DragSnapshot {
+    nodeId: string;
+    originalParentId: string | undefined;
+    originalDepth: number;
+    originalSiblingIndex: number;
+    originalTreePosition: number; // 在树中的位置索引
+}
+
+/**
+ * 操作结果
+ */
+export interface OperationResult {
+    success: boolean;
+    error?: string;
+    data?: any;
+}
+
+/**
  * 搜索结果
  */
 export interface SearchResult {

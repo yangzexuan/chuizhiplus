@@ -9,7 +9,7 @@
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { TabTreeNode, FlattenedNode } from '@/types';
+import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult } from '@/types';
 import { useUIStore } from './ui';
 
 export const useTabsStore = defineStore('tabs', () => {
@@ -29,6 +29,11 @@ export const useTabsStore = defineStore('tabs', () => {
      * 按窗口分组的节点映射
      */
     const windowGroups = ref<Record<number, TabTreeNode[]>>({});
+
+    /**
+     * 拖拽操作快照（用于撤销）
+     */
+    const dragSnapshot = ref<DragSnapshot | null>(null);
 
     // ==================== Getters ====================
 
@@ -332,7 +337,7 @@ export const useTabsStore = defineStore('tabs', () => {
             console.warn('无效的标签页数据:', tab);
             return '';
         }
-6.1
+
         // 检查是否已存在
         const existing = findNodeByTabId(tab.id);
         if (existing) {
@@ -517,6 +522,16 @@ export const useTabsStore = defineStore('tabs', () => {
         for (const child of node.children) {
             child.depth = node.depth + 1;
             updateDescendantsDepth(child);
+        }
+    }
+
+    /**
+     * 递归更新节点所有后代的窗口ID
+     */
+    function updateDescendantsWindow(node: TabTreeNode, windowId: number): void {
+        for (const child of node.children) {
+            child.windowId = windowId;
+            updateDescendantsWindow(child, windowId);
         }
     }
 
@@ -748,6 +763,16 @@ export const useTabsStore = defineStore('tabs', () => {
             startPosition: { x, y },
             isValid: true,
         });
+
+        // 保存拖拽前的状态快照（用于撤销）
+        const treeIndex = tabTree.value.findIndex(n => n.id === node.id);
+        dragSnapshot.value = {
+            nodeId: node.id,
+            originalParentId: node.parentId,
+            originalDepth: node.depth,
+            originalSiblingIndex: node.siblingIndex,
+            originalTreePosition: treeIndex >= 0 ? treeIndex : -1,
+        };
     }
 
     /**
@@ -805,12 +830,130 @@ export const useTabsStore = defineStore('tabs', () => {
     }
 
     /**
+     * 同步单个节点的标签页位置到 Chrome
+     */
+    async function syncTabPosition(nodeId: string): Promise<void> {
+        const node = findNodeById(nodeId);
+        if (!node || node.tabId === undefined) {
+            return;
+        }
+
+        // 计算节点在树中的位置（扁平化后的索引）
+        const flatNodes = flattenedTabs.value;
+        const targetIndex = flatNodes.findIndex(n => n.id === nodeId);
+
+        if (targetIndex < 0) {
+            return;
+        }
+
+        // 获取目标窗口ID
+        const targetWindowId = node.windowId;
+
+        try {
+            await chrome.tabs.move(node.tabId, {
+                index: targetIndex,
+                windowId: targetWindowId,
+            });
+            console.log(`已移动标签页 ${node.tabId} 到位置 ${targetIndex}`);
+        } catch (error) {
+            console.error(`移动标签页失败:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * 递归同步节点及其所有子节点的位置
+     */
+    async function syncTabPositionRecursive(node: TabTreeNode): Promise<void> {
+        // 先同步当前节点
+        if (node.tabId !== undefined) {
+            await syncTabPosition(node.id);
+        }
+
+        // 递归同步所有子节点
+        for (const child of node.children) {
+            await syncTabPositionRecursive(child);
+        }
+    }
+
+    /**
+     * 撤销拖拽操作
+     */
+    async function undoDrag(): Promise<OperationResult> {
+        if (!dragSnapshot.value) {
+            return { success: false, error: '没有可撤销的拖拽操作' };
+        }
+
+        const snapshot = dragSnapshot.value;
+        const node = findNodeById(snapshot.nodeId);
+
+        if (!node) {
+            dragSnapshot.value = null;
+            return { success: false, error: '节点不存在' };
+        }
+
+        // 从当前位置移除
+        if (node.parentId) {
+            const currentParent = findNodeById(node.parentId);
+            if (currentParent) {
+                const index = currentParent.children.findIndex(c => c.id === node.id);
+                if (index !== -1) {
+                    currentParent.children.splice(index, 1);
+                }
+            }
+        } else {
+            const index = tabTree.value.findIndex(n => n.id === node.id);
+            if (index !== -1) {
+                tabTree.value.splice(index, 1);
+            }
+        }
+
+        // 恢复到原位置
+        node.parentId = snapshot.originalParentId;
+        node.depth = snapshot.originalDepth;
+        node.siblingIndex = snapshot.originalSiblingIndex;
+
+        if (snapshot.originalParentId) {
+            const originalParent = findNodeById(snapshot.originalParentId);
+            if (originalParent) {
+                originalParent.children.push(node);
+            } else {
+                // 父节点不存在，添加到根
+                tabTree.value.push(node);
+            }
+        } else {
+            // 恢复到根节点位置
+            if (snapshot.originalTreePosition >= 0 && snapshot.originalTreePosition < tabTree.value.length) {
+                tabTree.value.splice(snapshot.originalTreePosition, 0, node);
+            } else {
+                tabTree.value.push(node);
+            }
+        }
+
+        updateDescendantsDepth(node);
+        updateWindowGroups();
+
+        // 同步到 Chrome
+        try {
+            await syncTabPositionRecursive(node);
+        } catch (error) {
+            console.error('撤销时同步标签页位置失败:', error);
+            return { success: false, error: `撤销失败: ${error}` };
+        }
+
+        // 清除快照
+        dragSnapshot.value = null;
+
+        return { success: true };
+    }
+
+    /**
      * 完成拖拽操作
      */
-    async function completeDrop(targetNodeId: string | null): Promise<void> {
+    async function completeDrop(targetNodeId: string | null): Promise<OperationResult | undefined> {
         const uiStore = useUIStore();
         if (!uiStore.dragState) {
-            return;
+            return { success: false, error: '没有正在进行的拖拽操作' };
         }
 
         const dragNodeId = uiStore.dragState.dragNodeId;
@@ -818,7 +961,7 @@ export const useTabsStore = defineStore('tabs', () => {
 
         if (!dragNode) {
             endDrag();
-            return;
+            return { success: false, error: '拖拽节点不存在' };
         }
 
         // 如果拖拽到根区域（targetNodeId 为 null）
@@ -849,7 +992,7 @@ export const useTabsStore = defineStore('tabs', () => {
             // 验证拖拽是否有效
             if (!validateDrop(targetNodeId)) {
                 endDrag();
-                return;
+                return { success: false, error: '无效的拖拽操作：不能拖拽到自身或其后代节点' };
             }
 
             // 从原位置移除
@@ -874,13 +1017,32 @@ export const useTabsStore = defineStore('tabs', () => {
                 dragNode.parentId = targetNodeId;
                 dragNode.depth = newParent.depth + 1;
                 dragNode.siblingIndex = newParent.children.length;
+
+                // 跨窗口拖拽：更新 windowId
+                if (dragNode.windowId !== newParent.windowId) {
+                    dragNode.windowId = newParent.windowId;
+                    // 递归更新所有子节点的 windowId
+                    updateDescendantsWindow(dragNode, newParent.windowId);
+                }
+
                 newParent.children.push(dragNode);
                 updateDescendantsDepth(dragNode);
             }
         }
 
         updateWindowGroups();
+
+        // 同步到 Chrome 标签页位置
+        try {
+            await syncTabPositionRecursive(dragNode);
+        } catch (error) {
+            console.error('同步标签页位置失败:', error);
+            endDrag();
+            return { success: false, error: `同步标签页位置失败: ${error}` };
+        }
+
         endDrag();
+        return { success: true };
     }
 
     // ==================== Return ====================
@@ -923,5 +1085,8 @@ export const useTabsStore = defineStore('tabs', () => {
         endDrag,
         validateDrop,
         completeDrop,
+        syncTabPosition,
+        undoDrag,
+        dragSnapshot,
     };
 });
