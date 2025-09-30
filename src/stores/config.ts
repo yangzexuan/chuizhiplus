@@ -20,6 +20,7 @@ export interface Config {
     closeConfirmThreshold: number;
     enableCloseConfirmation: boolean;
     protectPinnedTabs: boolean;
+    undoTimeWindow: number; // 撤销时间窗口（毫秒）
 }
 
 export const useConfigStore = defineStore('config', () => {
@@ -35,6 +36,7 @@ export const useConfigStore = defineStore('config', () => {
         closeConfirmThreshold: 3,
         enableCloseConfirmation: true,
         protectPinnedTabs: true,
+        undoTimeWindow: 5000, // 5秒撤销时间窗口
     });
 
     /**
@@ -106,6 +108,7 @@ export const useConfigStore = defineStore('config', () => {
             closeConfirmThreshold: 3,
             enableCloseConfirmation: true,
             protectPinnedTabs: true,
+            undoTimeWindow: 5000,
         };
         await saveConfig();
     }

@@ -9,7 +9,7 @@
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult } from '@/types';
+import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult, CloseSnapshot, UndoNotification } from '@/types';
 import { useUIStore } from './ui';
 import { useConfigStore } from './config';
 
@@ -35,6 +35,17 @@ export const useTabsStore = defineStore('tabs', () => {
      * 拖拽操作快照（用于撤销）
      */
     const dragSnapshot = ref<DragSnapshot | null>(null);
+
+    /**
+     * 关闭操作快照（用于撤销关闭）
+     */
+    const closeSnapshot = ref<CloseSnapshot | null>(null);
+
+    /**
+     * 撤销通知状态
+     */
+    const undoNotification = ref<UndoNotification | null>(null);
+
 
     // ==================== Getters ====================
 
@@ -114,6 +125,19 @@ export const useTabsStore = defineStore('tabs', () => {
      */
     const tabCount = computed<number>(() => {
         return flattenedTabs.value.length;
+    });
+
+    /**
+     * 是否可以撤销关闭操作
+     */
+    const canUndoClose = computed(() => {
+        if (!closeSnapshot.value) {
+            return false;
+        }
+
+        const configStore = useConfigStore();
+        const elapsed = Date.now() - closeSnapshot.value.timestamp;
+        return elapsed <= configStore.config.undoTimeWindow;
     });
 
     // ==================== Actions ====================
@@ -1127,12 +1151,19 @@ export const useTabsStore = defineStore('tabs', () => {
             return { success: false, error: '标签页受保护，无法关闭' };
         }
 
+        // 保存快照（用于撤销）
+        const nodeCopy = JSON.parse(JSON.stringify(node)) as TabTreeNode;
+        saveCloseSnapshot([nodeCopy]);
+
         try {
             // 调用 Chrome API 关闭标签页
             await chrome.tabs.remove(node.tabId);
 
             // 从树中移除节点
             removeTab(nodeId);
+
+            // 显示撤销通知
+            showUndoNotification(1);
 
             return { success: true };
         } catch (error) {
@@ -1165,6 +1196,12 @@ export const useTabsStore = defineStore('tabs', () => {
 
         collectTabs(node);
 
+        // 保存快照（用于撤销）- 深拷贝所有节点
+        const nodeCopies = tabsToClose
+            .filter(tab => !isProtectedTab(tab.id))
+            .map(tab => JSON.parse(JSON.stringify(tab)) as TabTreeNode);
+        saveCloseSnapshot(nodeCopies);
+
         // 按顺序关闭所有标签页
         for (const tab of tabsToClose) {
             // 跳过受保护的标签页
@@ -1190,6 +1227,11 @@ export const useTabsStore = defineStore('tabs', () => {
             }
         }
 
+        // 显示撤销通知
+        if (closedTabs.length > 0) {
+            showUndoNotification(closedTabs.length);
+        }
+
         if (errors.length > 0) {
             return {
                 success: false,
@@ -1204,6 +1246,109 @@ export const useTabsStore = defineStore('tabs', () => {
         };
     }
 
+    // ==================== 撤销关闭操作 ====================
+
+    /**
+     * 保存关闭快照
+     */
+    function saveCloseSnapshot(nodes: TabTreeNode[]): void {
+        closeSnapshot.value = {
+            closedNodes: nodes,
+            timestamp: Date.now(),
+        };
+    }
+
+    /**
+     * 清除关闭快照
+     */
+    function clearCloseSnapshot(): void {
+        closeSnapshot.value = null;
+    }
+
+    /**
+     * 显示撤销通知
+     */
+    function showUndoNotification(count: number): void {
+        undoNotification.value = {
+            message: `已关闭 ${count} 个标签页`,
+            count,
+            timestamp: Date.now(),
+        };
+    }
+
+    /**
+     * 关闭撤销通知
+     */
+    function dismissUndoNotification(): void {
+        undoNotification.value = null;
+    }
+
+    /**
+     * 撤销关闭操作
+     */
+    async function undoClose(): Promise<OperationResult> {
+        // 先检查是否超时（在清除快照之前）
+        if (closeSnapshot.value && !canUndoClose.value) {
+            clearCloseSnapshot();
+            return { success: false, error: '撤销操作已超时' };
+        }
+
+        if (!closeSnapshot.value) {
+            return { success: false, error: '没有可撤销的关闭操作' };
+        }
+
+        const snapshot = closeSnapshot.value;
+        const errors: string[] = [];
+
+        try {
+            // 按顺序重新创建标签页
+            for (const node of snapshot.closedNodes) {
+                try {
+                    const createdTab = await chrome.tabs.create({
+                        url: node.url,
+                        windowId: node.windowId,
+                        active: node.isActive,
+                    });
+
+                    // 创建新节点并添加到树中
+                    const newNode: TabTreeNode = {
+                        ...node,
+                        tabId: createdTab.id,
+                        // 保持原有的 children，但它们需要在后续被重新创建
+                    };
+
+                    // 暂时移除 children 引用，因为它们将单独恢复
+                    const childrenBackup = newNode.children;
+                    newNode.children = [];
+
+                    // 添加到树中
+                    addTab(newNode);
+
+                    // 恢复 children（如果它们也在快照中）
+                    newNode.children = childrenBackup;
+                } catch (error) {
+                    errors.push(`恢复标签页失败: ${error}`);
+                }
+            }
+
+            // 清除快照和通知
+            clearCloseSnapshot();
+            dismissUndoNotification();
+
+            if (errors.length > 0) {
+                return {
+                    success: false,
+                    error: errors.join('; '),
+                    data: { errors },
+                };
+            }
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: String(error) };
+        }
+    }
+
     // ==================== Return ====================
 
     return {
@@ -1211,6 +1356,9 @@ export const useTabsStore = defineStore('tabs', () => {
         tabTree,
         activeTabId,
         windowGroups,
+        dragSnapshot,
+        closeSnapshot,
+        undoNotification,
 
         // Getters
         flattenedTabs,
@@ -1218,6 +1366,7 @@ export const useTabsStore = defineStore('tabs', () => {
         activeTab,
         rootNodes,
         tabCount,
+        canUndoClose,
 
         // Actions
         addTab,
@@ -1254,5 +1403,10 @@ export const useTabsStore = defineStore('tabs', () => {
         needsConfirmation,
         getCloseCount,
         isProtectedTab,
+
+        // Undo Close Actions
+        undoClose,
+        clearCloseSnapshot,
+        dismissUndoNotification,
     };
 });

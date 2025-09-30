@@ -124,6 +124,23 @@ export interface OperationResult {
 }
 
 /**
+ * 关闭快照接口（用于撤销关闭操作）
+ */
+export interface CloseSnapshot {
+    closedNodes: TabTreeNode[];
+    timestamp: number;
+}
+
+/**
+ * 撤销通知接口
+ */
+export interface UndoNotification {
+    message: string;
+    count: number;
+    timestamp: number;
+}
+
+/**
  * 搜索结果
  */
 export interface SearchResult {
