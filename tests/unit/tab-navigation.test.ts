@@ -16,434 +16,434 @@ import type { TabTreeNode } from '@/types';
 
 // Mock Chrome API
 global.chrome = {
-  runtime: {
-    sendMessage: vi.fn(),
-    onMessage: {
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
+    runtime: {
+        sendMessage: vi.fn(),
+        onMessage: {
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+        },
     },
-  },
-  storage: {
-    local: {
-      get: vi.fn().mockResolvedValue({}),
-      set: vi.fn().mockResolvedValue(undefined),
+    storage: {
+        local: {
+            get: vi.fn().mockResolvedValue({}),
+            set: vi.fn().mockResolvedValue(undefined),
+        },
     },
-  },
-  tabs: {
-    query: vi.fn(),
-    get: vi.fn(),
-    update: vi.fn(),
-    move: vi.fn(),
-    remove: vi.fn(),
-    create: vi.fn(),
-  },
-  windows: {
-    get: vi.fn(),
-    getAll: vi.fn(),
-    create: vi.fn(),
-    remove: vi.fn(),
-    update: vi.fn(),
-  },
+    tabs: {
+        query: vi.fn(),
+        get: vi.fn(),
+        update: vi.fn(),
+        move: vi.fn(),
+        remove: vi.fn(),
+        create: vi.fn(),
+    },
+    windows: {
+        get: vi.fn(),
+        getAll: vi.fn(),
+        create: vi.fn(),
+        remove: vi.fn(),
+        update: vi.fn(),
+    },
 } as any;
 
 describe('标签页导航和定位功能', () => {
-  let tabsStore: ReturnType<typeof useTabsStore>;
-  let uiStore: ReturnType<typeof useUIStore>;
+    let tabsStore: ReturnType<typeof useTabsStore>;
+    let uiStore: ReturnType<typeof useUIStore>;
 
-  beforeEach(() => {
-    setActivePinia(createPinia());
-    tabsStore = useTabsStore();
-    uiStore = useUIStore();
-    vi.clearAllMocks();
-  });
-
-  describe('确保节点可见', () => {
-    it('应该有ensureNodeVisible方法', () => {
-      expect(typeof tabsStore.ensureNodeVisible).toBe('function');
+    beforeEach(() => {
+        setActivePinia(createPinia());
+        tabsStore = useTabsStore();
+        uiStore = useUIStore();
+        vi.clearAllMocks();
     });
 
-    it('ensureNodeVisible应该展开所有父节点', () => {
-      const grandparent: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Grandparent',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+    describe('确保节点可见', () => {
+        it('应该有ensureNodeVisible方法', () => {
+            expect(typeof tabsStore.ensureNodeVisible).toBe('function');
+        });
 
-      const parent: TabTreeNode = {
-        id: 'tab-2',
-        tabId: 2,
-        windowId: 1,
-        parentId: 'tab-1',
-        children: [],
-        depth: 1,
-        siblingIndex: 0,
-        title: 'Parent',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+        it('ensureNodeVisible应该展开所有父节点', () => {
+            const grandparent: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Grandparent',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      const child: TabTreeNode = {
-        id: 'tab-3',
-        tabId: 3,
-        windowId: 1,
-        parentId: 'tab-2',
-        children: [],
-        depth: 2,
-        siblingIndex: 0,
-        title: 'Child',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+            const parent: TabTreeNode = {
+                id: 'tab-2',
+                tabId: 2,
+                windowId: 1,
+                parentId: 'tab-1',
+                children: [],
+                depth: 1,
+                siblingIndex: 0,
+                title: 'Parent',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      parent.children.push(child);
-      grandparent.children.push(parent);
-      tabsStore.addNode(grandparent);
+            const child: TabTreeNode = {
+                id: 'tab-3',
+                tabId: 3,
+                windowId: 1,
+                parentId: 'tab-2',
+                children: [],
+                depth: 2,
+                siblingIndex: 0,
+                title: 'Child',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      // 折叠所有节点
-      uiStore.collapseNode('tab-1');
-      uiStore.collapseNode('tab-2');
+            parent.children.push(child);
+            grandparent.children.push(parent);
+            tabsStore.addNode(grandparent);
 
-      expect(uiStore.isNodeCollapsed('tab-1')).toBe(true);
-      expect(uiStore.isNodeCollapsed('tab-2')).toBe(true);
+            // 折叠所有节点
+            uiStore.collapseNode('tab-1');
+            uiStore.collapseNode('tab-2');
 
-      // 确保子节点可见
-      tabsStore.ensureNodeVisible('tab-3');
+            expect(uiStore.isNodeCollapsed('tab-1')).toBe(true);
+            expect(uiStore.isNodeCollapsed('tab-2')).toBe(true);
 
-      // 所有祖先都应该被展开
-      expect(uiStore.isNodeCollapsed('tab-1')).toBe(false);
-      expect(uiStore.isNodeCollapsed('tab-2')).toBe(false);
+            // 确保子节点可见
+            tabsStore.ensureNodeVisible('tab-3');
+
+            // 所有祖先都应该被展开
+            expect(uiStore.isNodeCollapsed('tab-1')).toBe(false);
+            expect(uiStore.isNodeCollapsed('tab-2')).toBe(false);
+        });
+
+        it('根节点调用ensureNodeVisible应该不报错', () => {
+            const node: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Root',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
+
+            tabsStore.addNode(node);
+
+            expect(() => {
+                tabsStore.ensureNodeVisible('tab-1');
+            }).not.toThrow();
+        });
     });
 
-    it('根节点调用ensureNodeVisible应该不报错', () => {
-      const node: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Root',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+    describe('节点高亮', () => {
+        it('应该有highlightNode方法', () => {
+            expect(typeof tabsStore.highlightNode).toBe('function');
+        });
 
-      tabsStore.addNode(node);
+        it('应该有clearNodeHighlight方法', () => {
+            expect(typeof tabsStore.clearNodeHighlight).toBe('function');
+        });
 
-      expect(() => {
-        tabsStore.ensureNodeVisible('tab-1');
-      }).not.toThrow();
-    });
-  });
+        it('highlightNode应该设置节点的isHighlighted为true', () => {
+            const node: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Tab 1',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-  describe('节点高亮', () => {
-    it('应该有highlightNode方法', () => {
-      expect(typeof tabsStore.highlightNode).toBe('function');
-    });
+            tabsStore.addNode(node);
 
-    it('应该有clearNodeHighlight方法', () => {
-      expect(typeof tabsStore.clearNodeHighlight).toBe('function');
-    });
+            expect(node.isHighlighted).toBe(false);
 
-    it('highlightNode应该设置节点的isHighlighted为true', () => {
-      const node: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Tab 1',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+            tabsStore.highlightNode('tab-1');
 
-      tabsStore.addNode(node);
+            const highlightedNode = tabsStore.findNodeById('tab-1');
+            expect(highlightedNode?.isHighlighted).toBe(true);
+        });
 
-      expect(node.isHighlighted).toBe(false);
+        it('highlightNode应该清除之前高亮的节点', () => {
+            const node1: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Tab 1',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      tabsStore.highlightNode('tab-1');
+            const node2: TabTreeNode = {
+                id: 'tab-2',
+                tabId: 2,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Tab 2',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      const highlightedNode = tabsStore.findNodeById('tab-1');
-      expect(highlightedNode?.isHighlighted).toBe(true);
-    });
+            tabsStore.addNode(node1);
+            tabsStore.addNode(node2);
 
-    it('highlightNode应该清除之前高亮的节点', () => {
-      const node1: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Tab 1',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+            // 高亮第一个节点
+            tabsStore.highlightNode('tab-1');
+            expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(true);
 
-      const node2: TabTreeNode = {
-        id: 'tab-2',
-        tabId: 2,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Tab 2',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+            // 高亮第二个节点应该清除第一个节点的高亮
+            tabsStore.highlightNode('tab-2');
+            expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(false);
+            expect(tabsStore.findNodeById('tab-2')?.isHighlighted).toBe(true);
+        });
 
-      tabsStore.addNode(node1);
-      tabsStore.addNode(node2);
+        it('clearNodeHighlight应该清除所有高亮', () => {
+            const node: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Tab 1',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      // 高亮第一个节点
-      tabsStore.highlightNode('tab-1');
-      expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(true);
+            tabsStore.addNode(node);
 
-      // 高亮第二个节点应该清除第一个节点的高亮
-      tabsStore.highlightNode('tab-2');
-      expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(false);
-      expect(tabsStore.findNodeById('tab-2')?.isHighlighted).toBe(true);
-    });
+            tabsStore.highlightNode('tab-1');
+            expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(true);
 
-    it('clearNodeHighlight应该清除所有高亮', () => {
-      const node: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Tab 1',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
-
-      tabsStore.addNode(node);
-
-      tabsStore.highlightNode('tab-1');
-      expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(true);
-
-      tabsStore.clearNodeHighlight();
-      expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(false);
-    });
-  });
-
-  describe('滚动到节点', () => {
-    it('应该有scrollToNode方法', () => {
-      expect(typeof tabsStore.scrollToNode).toBe('function');
+            tabsStore.clearNodeHighlight();
+            expect(tabsStore.findNodeById('tab-1')?.isHighlighted).toBe(false);
+        });
     });
 
-    it('scrollToNode应该确保节点可见并高亮', () => {
-      const parent: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Parent',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+    describe('滚动到节点', () => {
+        it('应该有scrollToNode方法', () => {
+            expect(typeof tabsStore.scrollToNode).toBe('function');
+        });
 
-      const child: TabTreeNode = {
-        id: 'tab-2',
-        tabId: 2,
-        windowId: 1,
-        parentId: 'tab-1',
-        children: [],
-        depth: 1,
-        siblingIndex: 0,
-        title: 'Child',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
+        it('scrollToNode应该确保节点可见并高亮', () => {
+            const parent: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Parent',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      parent.children.push(child);
-      tabsStore.addNode(parent);
+            const child: TabTreeNode = {
+                id: 'tab-2',
+                tabId: 2,
+                windowId: 1,
+                parentId: 'tab-1',
+                children: [],
+                depth: 1,
+                siblingIndex: 0,
+                title: 'Child',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
 
-      // 折叠父节点
-      uiStore.collapseNode('tab-1');
-      expect(uiStore.isNodeCollapsed('tab-1')).toBe(true);
+            parent.children.push(child);
+            tabsStore.addNode(parent);
 
-      // 滚动到子节点
-      tabsStore.scrollToNode('tab-2');
+            // 折叠父节点
+            uiStore.collapseNode('tab-1');
+            expect(uiStore.isNodeCollapsed('tab-1')).toBe(true);
 
-      // 父节点应该被展开
-      expect(uiStore.isNodeCollapsed('tab-1')).toBe(false);
+            // 滚动到子节点
+            tabsStore.scrollToNode('tab-2');
 
-      // 子节点应该被高亮
-      expect(tabsStore.findNodeById('tab-2')?.isHighlighted).toBe(true);
-    });
-  });
+            // 父节点应该被展开
+            expect(uiStore.isNodeCollapsed('tab-1')).toBe(false);
 
-  describe('滚动到活跃标签页', () => {
-    it('应该有scrollToActiveTab方法', () => {
-      expect(typeof tabsStore.scrollToActiveTab).toBe('function');
-    });
-
-    it('scrollToActiveTab应该滚动到当前活跃的标签页', () => {
-      const node1: TabTreeNode = {
-        id: 'tab-1',
-        tabId: 1,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Tab 1',
-        url: 'https://example.com',
-        isActive: false,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
-
-      const node2: TabTreeNode = {
-        id: 'tab-2',
-        tabId: 2,
-        windowId: 1,
-        parentId: undefined,
-        children: [],
-        depth: 0,
-        siblingIndex: 0,
-        title: 'Tab 2',
-        url: 'https://example.com',
-        isActive: true,
-        isLoading: false,
-        isAudioPlaying: false,
-        isPinned: false,
-        isCollapsed: false,
-        isVisible: true,
-        isHighlighted: false,
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-        lastModified: Date.now(),
-      };
-
-      tabsStore.addNode(node1);
-      tabsStore.addNode(node2);
-      tabsStore.setActiveTab(2);
-
-      tabsStore.scrollToActiveTab();
-
-      // 活跃标签页应该被高亮
-      expect(tabsStore.findNodeById('tab-2')?.isHighlighted).toBe(true);
+            // 子节点应该被高亮
+            expect(tabsStore.findNodeById('tab-2')?.isHighlighted).toBe(true);
+        });
     });
 
-    it('没有活跃标签页时scrollToActiveTab不应该报错', () => {
-      expect(() => {
-        tabsStore.scrollToActiveTab();
-      }).not.toThrow();
+    describe('滚动到活跃标签页', () => {
+        it('应该有scrollToActiveTab方法', () => {
+            expect(typeof tabsStore.scrollToActiveTab).toBe('function');
+        });
+
+        it('scrollToActiveTab应该滚动到当前活跃的标签页', () => {
+            const node1: TabTreeNode = {
+                id: 'tab-1',
+                tabId: 1,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Tab 1',
+                url: 'https://example.com',
+                isActive: false,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
+
+            const node2: TabTreeNode = {
+                id: 'tab-2',
+                tabId: 2,
+                windowId: 1,
+                parentId: undefined,
+                children: [],
+                depth: 0,
+                siblingIndex: 0,
+                title: 'Tab 2',
+                url: 'https://example.com',
+                isActive: true,
+                isLoading: false,
+                isAudioPlaying: false,
+                isPinned: false,
+                isCollapsed: false,
+                isVisible: true,
+                isHighlighted: false,
+                createdAt: Date.now(),
+                lastAccessed: Date.now(),
+                lastModified: Date.now(),
+            };
+
+            tabsStore.addNode(node1);
+            tabsStore.addNode(node2);
+            tabsStore.setActiveTab(2);
+
+            tabsStore.scrollToActiveTab();
+
+            // 活跃标签页应该被高亮
+            expect(tabsStore.findNodeById('tab-2')?.isHighlighted).toBe(true);
+        });
+
+        it('没有活跃标签页时scrollToActiveTab不应该报错', () => {
+            expect(() => {
+                tabsStore.scrollToActiveTab();
+            }).not.toThrow();
+        });
     });
-  });
 });

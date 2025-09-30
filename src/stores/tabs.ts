@@ -1688,11 +1688,11 @@ export const useTabsStore = defineStore('tabs', () => {
      */
     function clearAllFiltersAndSearch(): void {
         const uiStore = useUIStore();
-        
+
         // 清除搜索
         uiStore.clearSearch();
         clearSearchResults();
-        
+
         // 清除过滤器
         uiStore.clearFilters();
     }
@@ -1733,13 +1733,13 @@ export const useTabsStore = defineStore('tabs', () => {
     function ensureNodeVisible(nodeId: string): void {
         const uiStore = useUIStore();
         const node = findNodeById(nodeId);
-        
+
         if (!node) return;
 
         // 收集所有父节点ID
         const parentIds: string[] = [];
         let currentParentId = node.parentId;
-        
+
         while (currentParentId) {
             parentIds.push(currentParentId);
             const parentNode = findNodeById(currentParentId);
@@ -1852,7 +1852,7 @@ export const useTabsStore = defineStore('tabs', () => {
      */
     function navigateToUrl(url: string): boolean {
         const node = findNodeByUrl(url);
-        
+
         if (!node) {
             return false;
         }
