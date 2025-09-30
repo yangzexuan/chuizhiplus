@@ -1725,6 +1725,87 @@ export const useTabsStore = defineStore('tabs', () => {
         return counts;
     }
 
+    // ==================== 导航和定位功能 ====================
+
+    /**
+     * 确保节点可见（展开所有父节点）
+     */
+    function ensureNodeVisible(nodeId: string): void {
+        const uiStore = useUIStore();
+        const node = findNodeById(nodeId);
+        
+        if (!node) return;
+
+        // 收集所有父节点ID
+        const parentIds: string[] = [];
+        let currentParentId = node.parentId;
+        
+        while (currentParentId) {
+            parentIds.push(currentParentId);
+            const parentNode = findNodeById(currentParentId);
+            currentParentId = parentNode?.parentId;
+        }
+
+        // 展开所有父节点
+        parentIds.forEach(parentId => {
+            uiStore.expandNode(parentId);
+        });
+    }
+
+    /**
+     * 高亮节点
+     */
+    function highlightNode(nodeId: string): void {
+        // 先清除所有高亮
+        clearNodeHighlight();
+
+        // 高亮指定节点
+        const node = findNodeById(nodeId);
+        if (node) {
+            node.isHighlighted = true;
+        }
+    }
+
+    /**
+     * 清除所有节点的高亮
+     */
+    function clearNodeHighlight(): void {
+        function clearHighlight(nodes: TabTreeNode[]): void {
+            for (const node of nodes) {
+                node.isHighlighted = false;
+                if (node.children.length > 0) {
+                    clearHighlight(node.children);
+                }
+            }
+        }
+
+        clearHighlight(tabTree.value);
+    }
+
+    /**
+     * 滚动到指定节点（确保可见并高亮）
+     */
+    function scrollToNode(nodeId: string): void {
+        // 确保节点可见
+        ensureNodeVisible(nodeId);
+
+        // 高亮节点
+        highlightNode(nodeId);
+    }
+
+    /**
+     * 滚动到当前活跃的标签页
+     */
+    function scrollToActiveTab(): void {
+        if (!activeTabId.value) return;
+
+        // 查找活跃标签页的节点
+        const activeNode = findNodeByTabId(activeTabId.value);
+        if (activeNode) {
+            scrollToNode(activeNode.id);
+        }
+    }
+
     // ==================== Return ====================
 
     return {
@@ -1812,5 +1893,12 @@ export const useTabsStore = defineStore('tabs', () => {
         applyFilters,
         clearAllFiltersAndSearch,
         getAvailableFilters,
+
+        // Navigation Actions
+        ensureNodeVisible,
+        highlightNode,
+        clearNodeHighlight,
+        scrollToNode,
+        scrollToActiveTab,
     };
 });
