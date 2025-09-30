@@ -83,6 +83,27 @@ body {
     opacity: 0.7;
 }
 
+/* 拖拽样式 */
+.tree-node.dragging {
+    opacity: 0.5;
+    background: #e8f0fe;
+    cursor: grabbing;
+}
+
+.tree-node.drop-target {
+    background: #d2e3fc;
+    border: 2px dashed #1967d2;
+    border-radius: 4px;
+}
+
+.tree-node {
+    cursor: grab;
+}
+
+.tree-node:active {
+    cursor: grabbing;
+}
+
 .collapse-button {
     width: 20px;
     height: 20px;
@@ -147,6 +168,59 @@ body {
     font-size: 11px;
     font-weight: 500;
     color: #5f6368;
+}
+
+/* 关闭按钮 */
+.close-button {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+    font-size: 14px;
+    color: #5f6368;
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.tree-node:hover .close-button {
+    display: flex;
+}
+
+.close-button:hover {
+    background: #f44336;
+    color: white;
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* 高亮闪烁效果 */
+@keyframes highlight-flash {
+    0% {
+        background: #fff3cd;
+        transform: scale(1);
+    }
+
+    50% {
+        background: #ffd700;
+        transform: scale(1.02);
+    }
+
+    100% {
+        background: #fff3cd;
+        transform: scale(1);
+    }
+}
+
+.tree-node.highlight-flash {
+    animation: highlight-flash 1s ease-in-out;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
 .footer {

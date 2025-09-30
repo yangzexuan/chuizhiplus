@@ -1,30 +1,27 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chrome Tree Tab Manager</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div id="app">
         <div class="header">
             <h1>🌲 Chrome Tree Tab Manager</h1>
         </div>
-        
+
         <div class="search-bar">
-            <input 
-                type="text" 
-                class="search-input" 
-                placeholder="搜索标签页..."
-                id="searchInput"
-            />
+            <input type="text" class="search-input" placeholder="搜索标签页..." id="searchInput" />
         </div>
-        
+
         <div class="main" id="treeContainer">
             <div class="empty-state">加载中...</div>
         </div>
-        
+
         <div class="footer">
             <span id="tabCount">标签页: 0</span>
             <span id="windowCount">窗口: 0</span>
@@ -33,4 +30,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
