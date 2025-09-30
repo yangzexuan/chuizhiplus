@@ -201,6 +201,26 @@ export const useTabsStore = defineStore('tabs', () => {
      * 添加标签页到树
      */
     function addTab(tab: TabTreeNode) {
+        // 确保节点有完整的初始化
+        if (!tab.children) {
+            tab.children = [];
+        }
+        if (tab.isActive === undefined) {
+            tab.isActive = false;
+        }
+        if (tab.isPinned === undefined) {
+            tab.isPinned = false;
+        }
+        if (tab.isLoading === undefined) {
+            tab.isLoading = false;
+        }
+        if (tab.isAudioPlaying === undefined) {
+            tab.isAudioPlaying = false;
+        }
+        if (tab.isHighlighted === undefined) {
+            tab.isHighlighted = false;
+        }
+
         if (tab.parentId) {
             // 添加为子节点
             const parent = findNodeById(tab.parentId);
