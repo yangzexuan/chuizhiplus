@@ -162,15 +162,37 @@ export const useTabsStore = defineStore('tabs', () => {
     const filteredTabs = computed<TabTreeNode[]>(() => {
         const uiStore = useUIStore();
         const query = uiStore.searchQuery.trim();
+        const hasFilters = uiStore.hasActiveFilters;
 
-        // 没有搜索时返回所有节点（flattenedTabs 已经是扩展后的节点）
-        if (!query) {
-            return flattenedTabs.value as any as TabTreeNode[];
+        let result = flattenedTabs.value as any as TabTreeNode[];
+
+        // 应用搜索过滤
+        if (query && searchResults.value.length > 0) {
+            const matchedNodeIds = new Set(searchResults.value.map(r => r.nodeId));
+            result = result.filter(node => matchedNodeIds.has(node.id));
         }
 
-        // 有搜索时只返回匹配的节点
-        const matchedNodeIds = new Set(searchResults.value.map(r => r.nodeId));
-        return flattenedTabs.value.filter(fn => matchedNodeIds.has(fn.id)) as any as TabTreeNode[];
+        // 应用状态过滤
+        if (hasFilters) {
+            result = result.filter(node => {
+                // 检查所有激活的过滤器，所有条件都必须满足（交集）
+                if (uiStore.isFilterActive('active') && !node.isActive) {
+                    return false;
+                }
+                if (uiStore.isFilterActive('audio') && !node.isAudioPlaying) {
+                    return false;
+                }
+                if (uiStore.isFilterActive('pinned') && !node.isPinned) {
+                    return false;
+                }
+                if (uiStore.isFilterActive('loading') && !node.isLoading) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        return result;
     });
 
     // ==================== Actions ====================
@@ -1650,6 +1672,59 @@ export const useTabsStore = defineStore('tabs', () => {
         searchResults.value = [];
     }
 
+    // ==================== 状态过滤功能 ====================
+
+    /**
+     * 应用过滤器（触发 filteredTabs 重新计算）
+     * 由于 filteredTabs 是 computed，这个方法主要用于显式触发
+     */
+    function applyFilters(): void {
+        // computed会自动响应，这里不需要做什么
+        // 这个方法主要是为了API的一致性
+    }
+
+    /**
+     * 清除所有过滤器和搜索
+     */
+    function clearAllFiltersAndSearch(): void {
+        const uiStore = useUIStore();
+        
+        // 清除搜索
+        uiStore.clearSearch();
+        clearSearchResults();
+        
+        // 清除过滤器
+        uiStore.clearFilters();
+    }
+
+    /**
+     * 获取可用的过滤器及其数量
+     */
+    function getAvailableFilters(): Record<string, number> {
+        const counts = {
+            active: 0,
+            audio: 0,
+            pinned: 0,
+            loading: 0,
+        };
+
+        function countNodes(nodes: TabTreeNode[]): void {
+            for (const node of nodes) {
+                if (node.isActive) counts.active++;
+                if (node.isAudioPlaying) counts.audio++;
+                if (node.isPinned) counts.pinned++;
+                if (node.isLoading) counts.loading++;
+
+                if (node.children.length > 0) {
+                    countNodes(node.children);
+                }
+            }
+        }
+
+        countNodes(tabTree.value);
+        return counts;
+    }
+
     // ==================== Return ====================
 
     return {
@@ -1732,5 +1807,10 @@ export const useTabsStore = defineStore('tabs', () => {
         searchTabs,
         expandMatchedNodeParents,
         clearSearchResults,
+
+        // Filter Actions
+        applyFilters,
+        clearAllFiltersAndSearch,
+        getAvailableFilters,
     };
 });
