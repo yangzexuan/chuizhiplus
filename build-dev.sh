@@ -64,15 +64,9 @@ cp src/sidepanel/App.vue dist-dev/sidepanel/
 cp src/sidepanel/style.css dist-dev/sidepanel/ 2>/dev/null || echo "  (style.css 不存在，跳过)"
 cp -r src/components dist-dev/ 2>/dev/null || echo "  (components 部分复制)"
 
-# 创建占位图标
-echo "🎨 创建占位图标..."
-for size in 16 32 48 128; do
-  # 创建一个简单的 SVG 图标并转换为 PNG
-  # 这里使用 base64 编码的简单图标
-  echo "  创建 icon-${size}.png..."
-  # 暂时创建空文件，用户可以后续替换
-  touch dist-dev/assets/icons/icon-${size}.png
-done
+# 生成真实的 PNG 图标
+echo "🎨 生成 PNG 图标..."
+node generate-icons.cjs
 
 # 创建简单的 HTML 文件（临时）
 echo "📄 创建简化的侧边面板 HTML..."
