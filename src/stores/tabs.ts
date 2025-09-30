@@ -10,6 +10,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { TabTreeNode, FlattenedNode } from '@/types';
+import { useUIStore } from './ui';
 
 export const useTabsStore = defineStore('tabs', () => {
     // ==================== State ====================
@@ -331,7 +332,7 @@ export const useTabsStore = defineStore('tabs', () => {
             console.warn('无效的标签页数据:', tab);
             return '';
         }
-
+6.1
         // 检查是否已存在
         const existing = findNodeByTabId(tab.id);
         if (existing) {
@@ -718,6 +719,170 @@ export const useTabsStore = defineStore('tabs', () => {
         }
     }
 
+    // ==================== 拖拽操作 ====================
+
+    /**
+     * 添加节点（用于测试）
+     */
+    function addNode(node: TabTreeNode): void {
+        if (node.parentId) {
+            const parent = findNodeById(node.parentId);
+            if (parent) {
+                parent.children.push(node);
+            } else {
+                tabTree.value.push(node);
+            }
+        } else {
+            tabTree.value.push(node);
+        }
+        updateWindowGroups();
+    }
+
+    /**
+     * 开始拖拽
+     */
+    function startDrag(node: TabTreeNode, x: number, y: number): void {
+        const uiStore = useUIStore();
+        uiStore.startDrag({
+            dragNodeId: node.id,
+            startPosition: { x, y },
+            isValid: true,
+        });
+    }
+
+    /**
+     * 更新拖拽位置
+     */
+    function updateDragPosition(targetNodeId: string): void {
+        const uiStore = useUIStore();
+        if (uiStore.dragState) {
+            uiStore.updateDragState({
+                targetNodeId,
+            });
+        }
+    }
+
+    /**
+     * 结束拖拽
+     */
+    function endDrag(): void {
+        const uiStore = useUIStore();
+        uiStore.endDrag();
+    }
+
+    /**
+     * 验证拖拽是否有效
+     */
+    function validateDrop(targetNodeId: string): boolean {
+        const uiStore = useUIStore();
+        if (!uiStore.dragState) {
+            return false;
+        }
+
+        const dragNodeId = uiStore.dragState.dragNodeId;
+
+        // 不允许拖拽到自身
+        if (dragNodeId === targetNodeId) {
+            return false;
+        }
+
+        // 检查是否会创建循环引用
+        const targetNode = findNodeById(targetNodeId);
+        if (!targetNode) {
+            return false;
+        }
+
+        // 检查目标节点是否是拖拽节点的后代
+        let current: TabTreeNode | null = targetNode;
+        while (current) {
+            if (current.id === dragNodeId) {
+                return false;
+            }
+            current = current.parentId ? findNodeById(current.parentId) : null;
+        }
+
+        return true;
+    }
+
+    /**
+     * 完成拖拽操作
+     */
+    async function completeDrop(targetNodeId: string | null): Promise<void> {
+        const uiStore = useUIStore();
+        if (!uiStore.dragState) {
+            return;
+        }
+
+        const dragNodeId = uiStore.dragState.dragNodeId;
+        const dragNode = findNodeById(dragNodeId);
+
+        if (!dragNode) {
+            endDrag();
+            return;
+        }
+
+        // 如果拖拽到根区域（targetNodeId 为 null）
+        if (targetNodeId === null) {
+            // 从原父节点移除
+            if (dragNode.parentId) {
+                const oldParent = findNodeById(dragNode.parentId);
+                if (oldParent) {
+                    const index = oldParent.children.findIndex(c => c.id === dragNode.id);
+                    if (index !== -1) {
+                        oldParent.children.splice(index, 1);
+                    }
+                }
+            } else {
+                // 已经是根节点，从树中移除
+                const index = tabTree.value.findIndex(n => n.id === dragNode.id);
+                if (index !== -1) {
+                    tabTree.value.splice(index, 1);
+                }
+            }
+
+            // 设置为根节点
+            dragNode.parentId = undefined;
+            dragNode.depth = 0;
+            tabTree.value.push(dragNode);
+            updateDescendantsDepth(dragNode);
+        } else {
+            // 验证拖拽是否有效
+            if (!validateDrop(targetNodeId)) {
+                endDrag();
+                return;
+            }
+
+            // 从原位置移除
+            if (dragNode.parentId) {
+                const oldParent = findNodeById(dragNode.parentId);
+                if (oldParent) {
+                    const index = oldParent.children.findIndex(c => c.id === dragNode.id);
+                    if (index !== -1) {
+                        oldParent.children.splice(index, 1);
+                    }
+                }
+            } else {
+                const index = tabTree.value.findIndex(n => n.id === dragNode.id);
+                if (index !== -1) {
+                    tabTree.value.splice(index, 1);
+                }
+            }
+
+            // 添加到新父节点
+            const newParent = findNodeById(targetNodeId);
+            if (newParent) {
+                dragNode.parentId = targetNodeId;
+                dragNode.depth = newParent.depth + 1;
+                dragNode.siblingIndex = newParent.children.length;
+                newParent.children.push(dragNode);
+                updateDescendantsDepth(dragNode);
+            }
+        }
+
+        updateWindowGroups();
+        endDrag();
+    }
+
     // ==================== Return ====================
 
     return {
@@ -750,5 +915,13 @@ export const useTabsStore = defineStore('tabs', () => {
         initializeSyncListeners,
         cleanupSyncListeners,
         syncAllTabs,
+
+        // Drag & Drop Actions
+        addNode,
+        startDrag,
+        updateDragPosition,
+        endDrag,
+        validateDrop,
+        completeDrop,
     };
 });

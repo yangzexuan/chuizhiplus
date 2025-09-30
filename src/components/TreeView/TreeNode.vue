@@ -6,10 +6,14 @@
       'is-loading': node.isLoading,
       'is-pinned': node.isPinned,
       'has-children': hasChildren,
+      'is-dragging': isDragging,
+      'is-drop-target': isDropTarget,
     }"
     :style="{ paddingLeft: `${indentSize}px` }"
+    draggable="true"
     @click.stop="$emit('click', node)"
     @contextmenu.prevent="$emit('contextmenu', node, $event)"
+    @dragstart="$emit('dragstart', node, $event)"
   >
     <!-- 折叠按钮 -->
     <button
@@ -79,6 +83,7 @@ interface Emits {
   (e: 'click', node: TabTreeNode): void;
   (e: 'toggle-collapse', node: TabTreeNode): void;
   (e: 'contextmenu', node: TabTreeNode, event: MouseEvent): void;
+  (e: 'dragstart', node: TabTreeNode, event: DragEvent): void;
 }
 
 defineEmits<Emits>();
@@ -106,6 +111,20 @@ const isCollapsed = computed(() => {
  */
 const indentSize = computed(() => {
   return 8 + props.node.depth * 20;
+});
+
+/**
+ * 是否正在被拖拽
+ */
+const isDragging = computed(() => {
+  return uiStore.dragState?.dragNodeId === props.node.id;
+});
+
+/**
+ * 是否是拖放目标
+ */
+const isDropTarget = computed(() => {
+  return uiStore.dragState?.targetNodeId === props.node.id;
 });
 
 // State
@@ -248,5 +267,16 @@ function handleFaviconError() {
 /* 有子节点的样式 */
 .tree-node.has-children {
   font-weight: 500;
+}
+
+/* 拖拽样式 */
+.tree-node.is-dragging {
+  opacity: 0.5;
+  background-color: #e8f0fe;
+}
+
+.tree-node.is-drop-target {
+  background-color: #d2e3fc;
+  border: 2px dashed #1967d2;
 }
 </style>
