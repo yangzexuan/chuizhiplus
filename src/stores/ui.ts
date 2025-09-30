@@ -97,8 +97,10 @@ export const useUIStore = defineStore('ui', () => {
     /**
      * 折叠所有节点
      */
-    function collapseAll() {
-        // 这将在与tabsStore集成时实现
+    function collapseAll(nodeIds: string[]) {
+        nodeIds.forEach(nodeId => {
+            collapsedNodes.value.add(nodeId);
+        });
     }
 
     /**

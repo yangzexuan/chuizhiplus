@@ -15,6 +15,7 @@
     <button
       v-if="hasChildren"
       class="collapse-button"
+      :class="{ 'expanded': !isCollapsed, 'collapsed': isCollapsed }"
       @click.stop="$emit('toggle-collapse', node)"
     >
       <span class="collapse-icon">{{ isCollapsed ? '▶' : '▼' }}</span>
@@ -35,6 +36,11 @@
 
     <!-- 标题 -->
     <span class="node-title">{{ node.title || 'Untitled' }}</span>
+
+    <!-- 折叠时的子节点数量 -->
+    <span v-if="isCollapsed && hasChildren" class="children-count">
+      {{ node.children.length }}
+    </span>
 
     <!-- 状态图标 -->
     <div class="node-icons">
@@ -162,6 +168,22 @@ function handleFaviconError() {
 
 .collapse-icon {
   font-size: 10px;
+  color: #5f6368;
+}
+
+/* 子节点数量标记 */
+.children-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  margin-left: 8px;
+  background-color: #e8eaed;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 500;
   color: #5f6368;
 }
 
