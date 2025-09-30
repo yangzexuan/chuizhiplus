@@ -16,6 +16,9 @@ let dropTargetTab = null;
 // 持久化的父子关系映射（因为 Chrome 的 openerTabId 可能丢失）
 let parentChildMap = new Map(); // key: childId, value: parentId
 
+// 窗口标签页缓存（避免切换窗口时的闪烁）
+let windowTabsCache = new Map(); // key: windowId, value: { tabs, timestamp }
+
 // 从 localStorage 加载父子关系
 function loadParentChildMap() {
     try {
@@ -47,12 +50,12 @@ async function init() {
     try {
         // 加载父子关系映射
         loadParentChildMap();
-        
+
         // 获取当前窗口ID
         const currentWindow = await chrome.windows.getCurrent();
         currentWindowId = currentWindow.id;
         console.log('🪟 当前窗口ID:', currentWindowId);
-        
+
         // 加载标签页
         await loadTabs();
         console.log('📊 标签页数据:', tabs.length, '个');
@@ -220,14 +223,31 @@ function renderTree() {
     const query = searchQuery.toLowerCase();
     let visibleTabs;
 
-    // 首先过滤当前窗口的标签页
-    const currentWindowTabs = tabs.filter(tab => tab.windowId === currentWindowId);
+    // 首先检查缓存
+    const cached = windowTabsCache.get(currentWindowId);
+    let currentWindowTabs;
+
+    if (cached && (Date.now() - cached.timestamp < 100)) {
+        // 使用缓存（100ms内的缓存有效）
+        console.log('💾 使用缓存的标签页数据');
+        currentWindowTabs = cached.tabs;
+    } else {
+        // 重新过滤
+        currentWindowTabs = tabs.filter(tab => tab.windowId === currentWindowId);
+
+        // 更新缓存
+        windowTabsCache.set(currentWindowId, {
+            tabs: currentWindowTabs,
+            timestamp: Date.now()
+        });
+    }
+
     console.log('🪟 当前窗口标签页数量:', currentWindowTabs.length);
-    
+
     if (query) {
         // 搜索模式：在当前窗口的标签页中搜索
-        visibleTabs = currentWindowTabs.filter(tab => 
-            tab.title.toLowerCase().includes(query) || 
+        visibleTabs = currentWindowTabs.filter(tab =>
+            tab.title.toLowerCase().includes(query) ||
             tab.url.toLowerCase().includes(query)
         );
         console.log('🔍 搜索结果:', visibleTabs.length, '个匹配');
@@ -654,8 +674,43 @@ function expandPathToNode(tab) {
     }
 }
 
+// 创建新标签页（无父节点）
+async function createNewTab() {
+    try {
+        console.log('➕ 创建新标签页（无父节点）');
+
+        // 在当前窗口创建新标签页
+        const newTab = await chrome.tabs.create({
+            windowId: currentWindowId,
+            active: true,
+            url: 'chrome://newtab'
+        });
+
+        console.log('✅ 新标签页已创建:', newTab.id);
+
+        // 刷新显示
+        await loadTabs();
+        renderTree();
+
+        // 定位到新标签页
+        setTimeout(() => {
+            scrollToActiveTab(newTab.id);
+        }, 200);
+
+    } catch (error) {
+        console.error('❌ 创建新标签页失败:', error);
+        alert('创建新标签页失败: ' + error.message);
+    }
+}
+
 // 设置监听器
 function setupListeners() {
+    // 新建标签页按钮
+    const newTabButton = document.getElementById('newTabButton');
+    newTabButton.addEventListener('click', () => {
+        createNewTab();
+    });
+
     // 搜索输入
     const searchInput = document.getElementById('searchInput');
     searchInput.addEventListener('input', (e) => {
@@ -689,6 +744,9 @@ function setupListeners() {
         parentChildMap.delete(tabId);
         saveParentChildMap();
 
+        // 清除缓存
+        windowTabsCache.clear();
+
         await loadTabs();
         renderTree();
     });
@@ -702,32 +760,42 @@ function setupListeners() {
 
     chrome.tabs.onActivated.addListener(async (activeInfo) => {
         console.log('👆 标签页激活:', activeInfo.tabId, '窗口:', activeInfo.windowId);
-        
+
         // 更新当前窗口ID
         currentWindowId = activeInfo.windowId;
-        
+
         await loadTabs();
         renderTree();
-        
+
         // 自动定位到活跃的标签页
         setTimeout(() => {
             scrollToActiveTab(activeInfo.tabId);
         }, 100);
     });
-    
+
     // 监听窗口焦点变化
     chrome.windows.onFocusChanged.addListener(async (windowId) => {
         if (windowId === chrome.windows.WINDOW_ID_NONE) {
             console.log('⚠️  没有窗口获得焦点');
             return;
         }
-        
+
         console.log('🪟 窗口焦点变化:', windowId);
+
+        // 检查是否有缓存
+        const cached = windowTabsCache.get(windowId);
+        if (cached && (Date.now() - cached.timestamp < 500)) {
+            console.log('💨 快速切换：使用缓存数据，避免闪烁');
+            currentWindowId = windowId;
+            renderTree();
+            return;
+        }
+
         currentWindowId = windowId;
-        
+
         await loadTabs();
         renderTree();
-        
+
         // 定位到新窗口的活跃标签页
         const activeTab = tabs.find(t => t.isActive && t.windowId === windowId);
         if (activeTab) {
@@ -735,6 +803,12 @@ function setupListeners() {
                 scrollToActiveTab(activeTab.id);
             }, 100);
         }
+    });
+
+    // 监听窗口关闭，清除缓存
+    chrome.windows.onRemoved.addListener((windowId) => {
+        console.log('🗑️  窗口关闭，清除缓存:', windowId);
+        windowTabsCache.delete(windowId);
     });
 
     console.log('✅ 监听器设置完成');
