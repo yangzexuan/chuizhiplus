@@ -58,16 +58,23 @@ onMounted(() => {
  */
 async function initializeData() {
   try {
-    // 获取标签页和窗口信息
-    const response = await chrome.runtime.sendMessage({ type: 'GET_ALL_TABS' });
-    if (response.success) {
-      tabCount.value = response.data.length;
-    }
-
-    const windowsResponse = await chrome.runtime.sendMessage({ type: 'GET_ALL_WINDOWS' });
-    if (windowsResponse.success) {
-      windowCount.value = windowsResponse.data.length;
-    }
+    // 直接从 Chrome API 获取所有标签页
+    const tabs = await chrome.tabs.query({});
+    console.log('获取到的标签页数量:', tabs.length);
+    
+    // 同步到 Store
+    await tabsStore.syncAllTabs();
+    
+    // 获取窗口信息
+    const windows = await chrome.windows.getAll();
+    windowCount.value = windows.length;
+    
+    // 初始化同步监听器
+    tabsStore.initializeSyncListeners();
+    
+    console.log('✅ 数据初始化完成');
+    console.log('标签页数量:', tabsStore.tabCount);
+    console.log('树结构:', tabsStore.tabTree);
   } catch (error) {
     console.error('初始化数据失败:', error);
   }

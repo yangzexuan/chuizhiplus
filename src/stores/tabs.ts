@@ -810,25 +810,37 @@ export const useTabsStore = defineStore('tabs', () => {
      */
     async function syncAllTabs(): Promise<void> {
         try {
-            const response = await chrome.runtime.sendMessage({
-                type: 'GET_ALL_TABS',
-            });
-
-            if (!response.success) {
-                console.error('同步标签页失败:', response.error);
-                return;
-            }
+            // 直接调用 Chrome API 获取所有标签页
+            const tabs = await chrome.tabs.query({});
+            console.log('📊 同步标签页:', tabs.length, '个');
 
             // 清空当前树
             clearTree();
 
+            // 获取所有窗口信息
+            const windows = await chrome.windows.getAll({ populate: false });
+            for (const window of windows) {
+                addWindow({
+                    id: window.id!,
+                    focused: window.focused,
+                    type: window.type || 'normal',
+                    incognito: window.incognito,
+                    state: window.state,
+                    top: window.top,
+                    left: window.left,
+                    width: window.width,
+                    height: window.height,
+                });
+            }
+
             // 添加所有标签页
-            const tabs = response.data as chrome.tabs.Tab[];
             if (tabs && Array.isArray(tabs)) {
                 for (const tab of tabs) {
                     addTabFromChrome(tab);
                 }
             }
+
+            console.log('✅ 同步完成，树结构:', tabTree.value.length, '个根节点');
         } catch (error) {
             console.error('同步所有标签页时出错:', error);
         }

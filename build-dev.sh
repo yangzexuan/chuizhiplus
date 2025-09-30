@@ -68,9 +68,14 @@ cp -r src/components dist-dev/ 2>/dev/null || echo "  (components 部分复制)"
 echo "🎨 生成 PNG 图标..."
 node generate-icons.cjs
 
-# 创建简单的 HTML 文件（临时）
-echo "📄 创建简化的侧边面板 HTML..."
-cat > dist-dev/sidepanel/index.html << 'EOF'
+# 使用完整功能的 HTML 文件
+echo "📄 复制完整功能的侧边面板 HTML..."
+cp src/sidepanel/index-standalone.html dist-dev/sidepanel/index.html
+
+# 备份：如果上面的文件不存在，创建简化版本
+if [ ! -f "dist-dev/sidepanel/index.html" ]; then
+    echo "⚠️  使用备用简化 HTML..."
+    cat > dist-dev/sidepanel/index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -167,6 +172,7 @@ cat > dist-dev/sidepanel/index.html << 'EOF'
 </body>
 </html>
 EOF
+fi
 
 # 创建简化的 service worker
 echo "⚙️  创建简化的 service worker..."

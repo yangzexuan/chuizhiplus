@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -194,23 +195,19 @@
         }
     </style>
 </head>
+
 <body>
     <div id="app">
         <div class="header">
             <h1>🌲 Chrome Tree Tab Manager</h1>
         </div>
-        
+
         <div class="search-bar">
-            <input 
-                type="text" 
-                class="search-input" 
-                placeholder="搜索标签页..."
-                id="searchInput"
-            />
+            <input type="text" class="search-input" placeholder="搜索标签页..." id="searchInput" />
         </div>
-        
+
         <div class="main" id="treeContainer"></div>
-        
+
         <div class="footer">
             <span id="tabCount">标签页: 0</span>
             <span id="windowCount">窗口: 0</span>
@@ -228,17 +225,17 @@
         // 初始化
         async function init() {
             console.log('🚀 Chrome Tree Tab Manager 启动');
-            
+
             // 加载标签页
             await loadTabs();
             await loadWindows();
-            
+
             // 渲染树
             renderTree();
-            
+
             // 设置监听器
             setupListeners();
-            
+
             console.log('✅ 初始化完成');
         }
 
@@ -247,7 +244,7 @@
             try {
                 const allTabs = await chrome.tabs.query({});
                 console.log('📊 加载了', allTabs.length, '个标签页');
-                
+
                 // 转换为树结构
                 tabs = allTabs.map(tab => ({
                     id: tab.id,
@@ -264,10 +261,10 @@
                     children: [],
                     depth: 0
                 }));
-                
+
                 // 构建父子关系
                 buildTree();
-                
+
             } catch (error) {
                 console.error('❌ 加载标签页失败:', error);
             }
@@ -289,7 +286,7 @@
             // 建立 ID 映射
             const tabMap = new Map();
             tabs.forEach(tab => tabMap.set(tab.id, tab));
-            
+
             // 构建父子关系
             tabs.forEach(tab => {
                 if (tab.parentId && tabMap.has(tab.parentId)) {
@@ -307,25 +304,25 @@
             const container = document.getElementById('treeContainer');
             const tabCountEl = document.getElementById('tabCount');
             const windowCountEl = document.getElementById('windowCount');
-            
+
             // 更新统计
             tabCountEl.textContent = `标签页: ${tabs.length}`;
             windowCountEl.textContent = `窗口: ${windows.length}`;
-            
+
             // 过滤和排序
             const query = searchQuery.toLowerCase();
             const visibleTabs = tabs.filter(tab => {
                 if (!query) return !tab.parentId; // 只显示根节点
-                return tab.title.toLowerCase().includes(query) || 
-                       tab.url.toLowerCase().includes(query);
+                return tab.title.toLowerCase().includes(query) ||
+                    tab.url.toLowerCase().includes(query);
             });
-            
+
             // 如果没有标签页
             if (visibleTabs.length === 0) {
                 container.innerHTML = '<div class="empty-state">没有找到标签页</div>';
                 return;
             }
-            
+
             // 渲染节点
             container.innerHTML = '';
             visibleTabs.forEach(tab => {
@@ -339,7 +336,7 @@
             node.className = 'tree-node' + (tab.isActive ? ' active' : '') + (tab.isLoading ? ' loading' : '');
             node.style.paddingLeft = `${8 + tab.depth * 20}px`;
             node.dataset.tabId = tab.id;
-            
+
             // 折叠按钮
             if (tab.children.length > 0) {
                 const collapseBtn = document.createElement('button');
@@ -355,7 +352,7 @@
                 placeholder.className = 'collapse-placeholder';
                 node.appendChild(placeholder);
             }
-            
+
             // Favicon
             if (tab.favicon) {
                 const favicon = document.createElement('img');
@@ -369,13 +366,13 @@
                 placeholder.textContent = '🌐';
                 node.appendChild(placeholder);
             }
-            
+
             // 标题
             const title = document.createElement('span');
             title.className = 'node-title';
             title.textContent = tab.title;
             node.appendChild(title);
-            
+
             // 子节点数量
             if (collapsedNodes.has(tab.id) && tab.children.length > 0) {
                 const count = document.createElement('span');
@@ -383,7 +380,7 @@
                 count.textContent = tab.children.length;
                 node.appendChild(count);
             }
-            
+
             // 状态图标
             const icons = document.createElement('div');
             icons.className = 'node-icons';
@@ -391,12 +388,12 @@
             if (tab.isAudioPlaying) icons.innerHTML += '🔊';
             if (tab.isPinned) icons.innerHTML += '📌';
             node.appendChild(icons);
-            
+
             // 点击事件
             node.onclick = () => activateTab(tab.id);
-            
+
             container.appendChild(node);
-            
+
             // 渲染子节点
             if (!collapsedNodes.has(tab.id) && tab.children.length > 0) {
                 tab.children.forEach(child => renderNode(child, container));
@@ -437,30 +434,30 @@
                 searchQuery = e.target.value;
                 renderTree();
             });
-            
+
             // 标签页变化监听
             chrome.tabs.onCreated.addListener(async () => {
                 await loadTabs();
                 renderTree();
             });
-            
+
             chrome.tabs.onRemoved.addListener(async () => {
                 await loadTabs();
                 renderTree();
             });
-            
+
             chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
                 if (changeInfo.status === 'complete' || changeInfo.title) {
                     await loadTabs();
                     renderTree();
                 }
             });
-            
+
             chrome.tabs.onActivated.addListener(async () => {
                 await loadTabs();
                 renderTree();
             });
-            
+
             console.log('✅ 监听器设置完成');
         }
 
@@ -468,4 +465,5 @@
         init();
     </script>
 </body>
+
 </html>
