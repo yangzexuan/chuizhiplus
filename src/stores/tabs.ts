@@ -9,7 +9,7 @@
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult, CloseSnapshot, UndoNotification, WindowInfo } from '@/types';
+import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult, CloseSnapshot, UndoNotification, WindowInfo, SearchResult, SearchMatch } from '@/types';
 import { useUIStore } from './ui';
 import { useConfigStore } from './config';
 
@@ -51,6 +51,10 @@ export const useTabsStore = defineStore('tabs', () => {
      */
     const undoNotification = ref<UndoNotification | null>(null);
 
+    /**
+     * 搜索结果列表
+     */
+    const searchResults = ref<SearchResult[]>([]);
 
     // ==================== Getters ====================
 
@@ -150,6 +154,23 @@ export const useTabsStore = defineStore('tabs', () => {
      */
     const windowCount = computed<number>(() => {
         return windows.value.length;
+    });
+
+    /**
+     * 过滤后的标签页列表
+     */
+    const filteredTabs = computed<TabTreeNode[]>(() => {
+        const uiStore = useUIStore();
+        const query = uiStore.searchQuery.trim();
+
+        // 没有搜索时返回所有节点（flattenedTabs 已经是扩展后的节点）
+        if (!query) {
+            return flattenedTabs.value as any as TabTreeNode[];
+        }
+
+        // 有搜索时只返回匹配的节点
+        const matchedNodeIds = new Set(searchResults.value.map(r => r.nodeId));
+        return flattenedTabs.value.filter(fn => matchedNodeIds.has(fn.id)) as any as TabTreeNode[];
     });
 
     // ==================== Actions ====================
@@ -1526,6 +1547,109 @@ export const useTabsStore = defineStore('tabs', () => {
         }
     }
 
+    // ==================== 搜索功能 ====================
+
+    /**
+     * 搜索标签页
+     */
+    function searchTabs(query: string): void {
+        const trimmedQuery = query.trim().toLowerCase();
+
+        // 空查询返回空结果
+        if (!trimmedQuery) {
+            searchResults.value = [];
+            return;
+        }
+
+        const results: SearchResult[] = [];
+
+        // 遍历所有节点
+        function searchNode(node: TabTreeNode): void {
+            const matches: SearchMatch[] = [];
+            let score = 0;
+
+            // 在标题中搜索
+            const titleLower = node.title.toLowerCase();
+            const titleIndex = titleLower.indexOf(trimmedQuery);
+            if (titleIndex !== -1) {
+                matches.push({
+                    field: 'title',
+                    start: titleIndex,
+                    end: titleIndex + trimmedQuery.length,
+                    text: node.title.substring(titleIndex, titleIndex + trimmedQuery.length),
+                });
+                score += 10; // 标题匹配权重更高
+            }
+
+            // 在URL中搜索
+            const urlLower = node.url.toLowerCase();
+            const urlIndex = urlLower.indexOf(trimmedQuery);
+            if (urlIndex !== -1) {
+                matches.push({
+                    field: 'url',
+                    start: urlIndex,
+                    end: urlIndex + trimmedQuery.length,
+                    text: node.url.substring(urlIndex, urlIndex + trimmedQuery.length),
+                });
+                score += 5; // URL匹配权重较低
+            }
+
+            // 如果有匹配，添加到结果
+            if (matches.length > 0) {
+                results.push({
+                    nodeId: node.id,
+                    matches,
+                    score,
+                });
+            }
+
+            // 递归搜索子节点
+            node.children.forEach(child => searchNode(child));
+        }
+
+        // 从根节点开始搜索
+        tabTree.value.forEach(node => searchNode(node));
+
+        // 按评分降序排序
+        results.sort((a, b) => b.score - a.score);
+
+        searchResults.value = results;
+    }
+
+    /**
+     * 展开匹配节点的所有父节点
+     */
+    function expandMatchedNodeParents(): void {
+        const uiStore = useUIStore();
+        const matchedNodeIds = new Set(searchResults.value.map(r => r.nodeId));
+
+        // 收集需要展开的父节点ID
+        const parentIdsToExpand = new Set<string>();
+
+        function collectParents(nodeId: string): void {
+            const node = findNodeById(nodeId);
+            if (node && node.parentId) {
+                parentIdsToExpand.add(node.parentId);
+                collectParents(node.parentId);
+            }
+        }
+
+        // 对每个匹配的节点，收集其所有父节点
+        matchedNodeIds.forEach(nodeId => collectParents(nodeId));
+
+        // 展开所有父节点
+        parentIdsToExpand.forEach(parentId => {
+            uiStore.expandNode(parentId);
+        });
+    }
+
+    /**
+     * 清除搜索结果
+     */
+    function clearSearchResults(): void {
+        searchResults.value = [];
+    }
+
     // ==================== Return ====================
 
     return {
@@ -1537,6 +1661,7 @@ export const useTabsStore = defineStore('tabs', () => {
         dragSnapshot,
         closeSnapshot,
         undoNotification,
+        searchResults,
 
         // Getters
         flattenedTabs,
@@ -1546,6 +1671,7 @@ export const useTabsStore = defineStore('tabs', () => {
         tabCount,
         canUndoClose,
         windowCount,
+        filteredTabs,
 
         // Actions
         addTab,
@@ -1601,5 +1727,10 @@ export const useTabsStore = defineStore('tabs', () => {
         switchToWindow,
         activateTabInWindow,
         canMoveToWindow,
+
+        // Search Actions
+        searchTabs,
+        expandMatchedNodeParents,
+        clearSearchResults,
     };
 });
