@@ -9,7 +9,7 @@
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult, CloseSnapshot, UndoNotification } from '@/types';
+import type { TabTreeNode, FlattenedNode, DragSnapshot, OperationResult, CloseSnapshot, UndoNotification, WindowInfo } from '@/types';
 import { useUIStore } from './ui';
 import { useConfigStore } from './config';
 
@@ -30,6 +30,11 @@ export const useTabsStore = defineStore('tabs', () => {
      * 按窗口分组的节点映射
      */
     const windowGroups = ref<Record<number, TabTreeNode[]>>({});
+
+    /**
+     * 窗口信息列表
+     */
+    const windows = ref<WindowInfo[]>([]);
 
     /**
      * 拖拽操作快照（用于撤销）
@@ -138,6 +143,13 @@ export const useTabsStore = defineStore('tabs', () => {
         const configStore = useConfigStore();
         const elapsed = Date.now() - closeSnapshot.value.timestamp;
         return elapsed <= configStore.config.undoTimeWindow;
+    });
+
+    /**
+     * 窗口数量
+     */
+    const windowCount = computed<number>(() => {
+        return windows.value.length;
     });
 
     // ==================== Actions ====================
@@ -1070,6 +1082,112 @@ export const useTabsStore = defineStore('tabs', () => {
         return { success: true };
     }
 
+    // ==================== 窗口管理 ====================
+
+    /**
+     * 根据ID获取窗口信息
+     */
+    function getWindowById(windowId: number): WindowInfo | undefined {
+        return windows.value.find(w => w.id === windowId);
+    }
+
+    /**
+     * 添加窗口信息
+     */
+    function addWindow(window: WindowInfo): void {
+        const existing = getWindowById(window.id);
+        if (!existing) {
+            windows.value.push(window);
+        }
+    }
+
+    /**
+     * 移除窗口信息
+     */
+    function removeWindow(windowId: number): void {
+        const index = windows.value.findIndex(w => w.id === windowId);
+        if (index !== -1) {
+            windows.value.splice(index, 1);
+        }
+    }
+
+    /**
+     * 更新窗口信息
+     */
+    function updateWindow(windowId: number, updates: Partial<WindowInfo>): void {
+        const window = getWindowById(windowId);
+        if (window) {
+            Object.assign(window, updates);
+        }
+    }
+
+    /**
+     * 根据窗口ID获取标签页列表
+     */
+    function getTabsByWindowId(windowId: number): TabTreeNode[] {
+        return windowGroups.value[windowId] || [];
+    }
+
+    /**
+     * 同步所有窗口信息
+     */
+    async function syncWindows(): Promise<void> {
+        try {
+            const chromeWindows = await chrome.windows.getAll();
+            windows.value = chromeWindows.map(w => ({
+                id: w.id!,
+                focused: w.focused,
+                type: w.type as WindowInfo['type'],
+                incognito: w.incognito,
+                alwaysOnTop: w.alwaysOnTop,
+                state: w.state as WindowInfo['state'],
+                top: w.top,
+                left: w.left,
+                width: w.width,
+                height: w.height,
+            }));
+        } catch (error) {
+            console.error('同步窗口信息失败:', error);
+        }
+    }
+
+    /**
+     * 处理窗口创建事件
+     */
+    function handleWindowCreated(window: WindowInfo): void {
+        addWindow(window);
+    }
+
+    /**
+     * 处理窗口移除事件
+     */
+    function handleWindowRemoved(windowId: number): void {
+        // 移除窗口信息
+        removeWindow(windowId);
+
+        // 移除该窗口的所有标签页
+        const tabsInWindow = getTabsByWindowId(windowId);
+        tabsInWindow.forEach(tab => {
+            removeTab(tab.id);
+        });
+
+        // 清除 windowGroups
+        delete windowGroups.value[windowId];
+    }
+
+    /**
+     * 处理窗口焦点变化事件
+     */
+    function handleWindowFocusChanged(windowId: number): void {
+        // 取消其他窗口的焦点
+        windows.value.forEach(w => {
+            w.focused = false;
+        });
+
+        // 设置当前窗口为焦点
+        updateWindow(windowId, { focused: true });
+    }
+
     // ==================== 智能关闭操作 ====================
 
     /**
@@ -1356,6 +1474,7 @@ export const useTabsStore = defineStore('tabs', () => {
         tabTree,
         activeTabId,
         windowGroups,
+        windows,
         dragSnapshot,
         closeSnapshot,
         undoNotification,
@@ -1367,6 +1486,7 @@ export const useTabsStore = defineStore('tabs', () => {
         rootNodes,
         tabCount,
         canUndoClose,
+        windowCount,
 
         // Actions
         addTab,
@@ -1408,5 +1528,16 @@ export const useTabsStore = defineStore('tabs', () => {
         undoClose,
         clearCloseSnapshot,
         dismissUndoNotification,
+
+        // Window Management Actions
+        getWindowById,
+        addWindow,
+        removeWindow,
+        updateWindow,
+        getTabsByWindowId,
+        syncWindows,
+        handleWindowCreated,
+        handleWindowRemoved,
+        handleWindowFocusChanged,
     };
 });

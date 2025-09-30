@@ -141,6 +141,22 @@ export interface UndoNotification {
 }
 
 /**
+ * 窗口信息
+ */
+export interface WindowInfo {
+    id: number;
+    focused: boolean;
+    type: 'normal' | 'popup' | 'panel' | 'app' | 'devtools';
+    incognito: boolean;
+    alwaysOnTop: boolean;
+    state?: 'normal' | 'minimized' | 'maximized' | 'fullscreen';
+    top?: number;
+    left?: number;
+    width?: number;
+    height?: number;
+}
+
+/**
  * 搜索结果
  */
 export interface SearchResult {

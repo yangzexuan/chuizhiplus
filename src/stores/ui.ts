@@ -20,6 +20,11 @@ export const useUIStore = defineStore('ui', () => {
     const collapsedNodes = ref<Set<string>>(new Set());
 
     /**
+     * 折叠的窗口ID集合
+     */
+    const collapsedWindows = ref<Set<number>>(new Set());
+
+    /**
      * 搜索查询字符串
      */
     const searchQuery = ref('');
@@ -217,11 +222,48 @@ export const useUIStore = defineStore('ui', () => {
         return activeFilters.value.has(filterId);
     }
 
+    // ==================== 窗口折叠操作 ====================
+
+    /**
+     * 切换窗口折叠状态
+     */
+    function toggleWindowCollapse(windowId: number): void {
+        if (collapsedWindows.value.has(windowId)) {
+            collapsedWindows.value.delete(windowId);
+        } else {
+            collapsedWindows.value.add(windowId);
+        }
+    }
+
+    /**
+     * 判断窗口是否折叠
+     */
+    function isWindowCollapsed(windowId: number): boolean {
+        return collapsedWindows.value.has(windowId);
+    }
+
+    /**
+     * 折叠所有窗口
+     */
+    function collapseAllWindows(windowIds: number[]): void {
+        windowIds.forEach(id => {
+            collapsedWindows.value.add(id);
+        });
+    }
+
+    /**
+     * 展开所有窗口
+     */
+    function expandAllWindows(): void {
+        collapsedWindows.value.clear();
+    }
+
     /**
      * 重置UI状态
      */
     function reset() {
         collapsedNodes.value.clear();
+        collapsedWindows.value.clear();
         searchQuery.value = '';
         selectedNodeId.value = null;
         dragState.value = null;
@@ -285,6 +327,7 @@ export const useUIStore = defineStore('ui', () => {
     return {
         // State
         collapsedNodes,
+        collapsedWindows,
         searchQuery,
         selectedNodeId,
         dragState,
@@ -320,5 +363,11 @@ export const useUIStore = defineStore('ui', () => {
         reset,
         saveCollapseState,
         loadCollapseState,
+
+        // Window Collapse Actions
+        toggleWindowCollapse,
+        isWindowCollapsed,
+        collapseAllWindows,
+        expandAllWindows,
     };
 });
