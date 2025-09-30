@@ -16,6 +16,7 @@ export default defineConfig({
         }
     },
     build: {
+        outDir: 'dist',
         rollupOptions: {
             input: {
                 sidepanel: resolve(__dirname, 'src/sidepanel/index.html')

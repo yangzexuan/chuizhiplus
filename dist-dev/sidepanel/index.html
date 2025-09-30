@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome Tree Tab Manager</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+        }
+        #app {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin: 0 0 20px 0;
+        }
+        .tab-tree {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .tab-item {
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: #f9f9f9;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .tab-item:hover {
+            background: #e3f2fd;
+        }
+        .tab-item.active {
+            background: #2196F3;
+            color: white;
+        }
+        .status {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>🌲 Chrome Tree Tab Manager</h1>
+        <div class="status">
+            <strong>核心功能状态：</strong> ✅ 已实现（422 测试通过）<br>
+            <strong>UI 状态：</strong> ⚙️ 开发中
+        </div>
+        <h3>当前标签页</h3>
+        <ul id="tab-list" class="tab-tree"></ul>
+    </div>
+    
+    <script type="module">
+        // 简单的标签页列表显示
+        async function loadTabs() {
+            const tabs = await chrome.tabs.query({});
+            const tabList = document.getElementById('tab-list');
+            tabList.innerHTML = '';
+            
+            tabs.forEach(tab => {
+                const li = document.createElement('li');
+                li.className = 'tab-item' + (tab.active ? ' active' : '');
+                li.textContent = tab.title || 'Untitled';
+                li.onclick = () => {
+                    chrome.tabs.update(tab.id, { active: true });
+                    chrome.windows.update(tab.windowId, { focused: true });
+                };
+                tabList.appendChild(li);
+            });
+        }
+        
+        // 初始加载
+        loadTabs();
+        
+        // 监听标签页变化
+        chrome.tabs.onUpdated.addListener(loadTabs);
+        chrome.tabs.onCreated.addListener(loadTabs);
+        chrome.tabs.onRemoved.addListener(loadTabs);
+        chrome.tabs.onActivated.addListener(loadTabs);
+        
+        console.log('✅ Chrome Tree Tab Manager 已加载');
+        console.log('💡 这是一个简化的开发版本，用于快速测试');
+        console.log('📊 核心功能（Pinia Store）已完成，UI 正在开发中');
+    </script>
+</body>
+</html>

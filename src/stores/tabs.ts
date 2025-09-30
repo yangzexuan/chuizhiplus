@@ -1931,7 +1931,6 @@ export const useTabsStore = defineStore('tabs', () => {
         completeDrop,
         syncTabPosition,
         undoDrag,
-        dragSnapshot,
 
         // Smart Close Actions
         closeTab,
