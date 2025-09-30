@@ -1806,6 +1806,61 @@ export const useTabsStore = defineStore('tabs', () => {
         }
     }
 
+    /**
+     * 根据URL查找节点
+     */
+    function findNodeByUrl(url: string): TabTreeNode | undefined {
+        function searchByUrl(nodes: TabTreeNode[]): TabTreeNode | undefined {
+            for (const node of nodes) {
+                if (node.url === url) {
+                    return node;
+                }
+                if (node.children.length > 0) {
+                    const found = searchByUrl(node.children);
+                    if (found) return found;
+                }
+            }
+            return undefined;
+        }
+
+        return searchByUrl(tabTree.value);
+    }
+
+    /**
+     * 查找所有匹配URL的节点
+     */
+    function findAllNodesByUrl(url: string): TabTreeNode[] {
+        const results: TabTreeNode[] = [];
+
+        function searchByUrl(nodes: TabTreeNode[]): void {
+            for (const node of nodes) {
+                if (node.url === url) {
+                    results.push(node);
+                }
+                if (node.children.length > 0) {
+                    searchByUrl(node.children);
+                }
+            }
+        }
+
+        searchByUrl(tabTree.value);
+        return results;
+    }
+
+    /**
+     * 导航到指定URL（查找并滚动到对应节点）
+     */
+    function navigateToUrl(url: string): boolean {
+        const node = findNodeByUrl(url);
+        
+        if (!node) {
+            return false;
+        }
+
+        scrollToNode(node.id);
+        return true;
+    }
+
     // ==================== Return ====================
 
     return {
@@ -1900,5 +1955,8 @@ export const useTabsStore = defineStore('tabs', () => {
         clearNodeHighlight,
         scrollToNode,
         scrollToActiveTab,
+        findNodeByUrl,
+        findAllNodesByUrl,
+        navigateToUrl,
     };
 });
