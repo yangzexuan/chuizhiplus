@@ -4,6 +4,12 @@
 
 Chrome树状标签管理器采用现代化前端架构，基于Vue3框架开发Chrome扩展插件，实现高性能的标签页管理功能。
 
+**技术栈状态更新** (2025-01-27)：
+- ✅ **核心架构完成**：Vue3 + TypeScript + Pinia + Vite
+- ✅ **测试框架集成**：Vitest + @vue/test-utils，422个测试100%通过
+- ✅ **Chrome扩展V3**：Manifest V3架构，Service Worker后台脚本
+- ⚙️ **UI组件开发中**：TreeView和TreeNode组件正在完善
+
 ## 前端技术栈
 
 ### 核心框架
@@ -21,9 +27,11 @@ Chrome树状标签管理器采用现代化前端架构，基于Vue3框架开发C
 - **组合式API**：基于Composition API的状态逻辑复用
 
 ### 构建和开发工具
-- **Vite**：现代化构建工具
-- **ESLint + Prettier**：代码质量和格式化
-- **TypeScript**：类型检查和智能提示
+- **Vite**：现代化构建工具，支持热重载和快速构建
+- **@crxjs/vite-plugin**：Chrome扩展专用Vite插件
+- **ESLint + TypeScript ESLint**：代码质量和类型检查
+- **Vitest**：现代化测试框架，支持Vue组件测试
+- **@vue/test-utils**：Vue组件测试工具库
 
 ## Chrome扩展技术
 
@@ -49,9 +57,12 @@ chrome.action.*      // 扩展图标操作API
 {
   "permissions": [
     "tabs",           // 访问标签页信息
-    "activeTab",      // 当前活跃标签页
     "storage",        // 本地存储
-    "sidePanel"       // 侧边栏功能
+    "sidePanel",      // 侧边栏功能
+    "tabGroups"       // 标签页分组功能
+  ],
+  "host_permissions": [
+    "<all_urls>"      // 访问所有URL（用于标签页管理）
   ]
 }
 ```
@@ -101,6 +112,9 @@ npm install
 # 开发模式（热重载）
 npm run dev
 
+# 构建开发版本（用于Chrome扩展加载）
+./build-dev.sh
+
 # 构建生产版本
 npm run build
 
@@ -110,8 +124,14 @@ npm run lint
 # 类型检查
 npm run type-check
 
-# 测试
+# 运行测试
 npm run test
+
+# 测试UI界面
+npm run test:ui
+
+# 预览构建结果
+npm run preview
 ```
 
 ### 目录结构
@@ -159,9 +179,11 @@ chrome://extensions/
 ```
 
 ### 测试策略
-- **单元测试**：使用Vitest进行组件和逻辑测试
-- **集成测试**：Chrome API的集成测试
-- **端到端测试**：使用Playwright进行完整流程测试
+- **单元测试**：使用Vitest进行组件和逻辑测试（422个测试用例）
+- **集成测试**：Chrome API的集成测试，包括标签页管理、窗口管理
+- **用户体验测试**：拖拽、搜索、折叠等交互功能测试
+- **性能测试**：大量标签页场景下的性能测试
+- **测试覆盖**：100%测试通过率，包含24个测试文件
 
 ## 构建和部署
 

@@ -1,0 +1,36 @@
+{
+    "name": "第二阶段需求",
+    "version": "1.0.0",
+    "description": "Chrome树状标签管理器第二阶段功能：文件夹管理和增强的右键菜单",
+    "language": "zh-CN",
+    "status": "tasks-generated",
+    "created": "2025-01-27",
+    "updated": "2025-01-27T10:30:00.000Z",
+    "author": "Chrome Tree Tab Manager Team",
+    "dependencies": [
+        "chrome-tree-tab"
+    ],
+    "tags": [
+        "folder-management",
+        "context-menu",
+        "ui-enhancement",
+        "persistence"
+    ],
+    "complexity": "medium",
+    "estimated_effort": "2-3 weeks",
+    "priority": "high",
+    "approvals": {
+        "requirements": {
+            "generated": true,
+            "approved": true
+        },
+        "design": {
+            "generated": true,
+            "approved": true
+        },
+        "tasks": {
+            "generated": true,
+            "approved": false
+        }
+    }
+}
